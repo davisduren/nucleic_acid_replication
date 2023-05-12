@@ -258,3 +258,42 @@ def convert_int_to_str_seq(seq_array, mapping):
         seq_array_s = np.char.replace(seq_array_s, k, v)
 
     return seq_array_s
+
+
+#calculate the average length of the sequences returned by the main program
+#will also find the longest sequence generated throughout any iteration and return it 
+def average_sequence_length_and_longest_seq(filename):
+    opened = open(filename, "r")
+    sequences = opened.read().splitlines()
+    sets = []
+    current_set = []
+    for seq in sequences:
+        if seq.startswith("*"): #ignore our notes written to the output file
+            continue
+        if seq:
+            current_set.append(seq)
+        else:
+            if current_set:
+                sets.append(current_set)
+                current_set = []
+    if current_set:
+        sets.append(current_set)
+
+    avg_lengths = []
+    longest_sequence = ""
+    for s in sets:
+        total_length = 0
+        for seq in s:
+            total_length += len(seq)
+            if len(seq) > len(longest_sequence):
+                longest_sequence = seq
+        avg_length = total_length / len(s)
+        avg_lengths.append(avg_length)
+
+    return avg_lengths, "LONGEST SEQUENCE FOUND: " + longest_sequence
+
+
+print(average_sequence_length_and_longest_seq("test_file_1.txt"))
+
+
+

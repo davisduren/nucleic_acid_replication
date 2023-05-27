@@ -1,17 +1,6 @@
-"""def show_most_developed_sequences(filename):
+import matplotlib.pyplot as plt
 
-    opened = open(filename, "r")
-    listlines = opened.readlines()
-    #print(listlines)
-    list_of_most_developed = []
-    for seq in listlines[-10:]:
-        x = seq.strip("\n")
-        list_of_most_developed.append(x)
-    opened.close()
 
-    appending = open(filename, "a")
-    appending.write("Most developed sequences: " + "\n" + list_of_most_developed)
-    appending.close()"""
 
 
 
@@ -51,7 +40,29 @@ def average_sequence_length_and_longest_seq(filename):
     return avg_lengths, "LONGEST SEQUENCE FOUND: " + longest_sequence
 
 
-print(average_sequence_length_and_longest_seq("test_file_1.txt"))
+#print(average_sequence_length_and_longest_seq("test_file_1.txt"))
 
-print(average_sequence_length("test_file_1.txt"))
+#histogram attempt1
+def generate_sequence_length_histogram(filename):
+    opened = open(filename, "r")
+    sequences = opened.read().splitlines()
+
+    sequence_lengths = []
+    for seq in sequences:
+        if seq.startswith("*"):
+            continue
+        else:
+            sequence_lengths.append(len(seq))
+            
+
+    plt.hist(sequence_lengths, bins=100)
+    plt.xlabel('Sequence Length')
+    plt.ylabel('Frequency')
+    plt.title('Sequence Length Histogram')
+    plt.savefig('sequence_length_histogram.jpg')  # Save the histogram as a .jpg file
+    plt.show()
+
+    opened.close()
+# Usage example
+generate_sequence_length_histogram('test_file_1.txt')
 

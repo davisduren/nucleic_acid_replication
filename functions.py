@@ -1,5 +1,6 @@
 import numpy as np
 import seqfold
+import matplotlib.pyplot as plt
 
 def order_of_mag(a):
     """Calculate the order of magnitude of integer elements in an array.
@@ -128,7 +129,7 @@ def structured_regions(structs):
 
     # Loop over all structured regions in a given strand
     for struct in structs:
-        i, j = struct.ij[0][0], struct.ij[0][1]
+        i, j = struct.ij[0][0], struct.ij[0][1] #initial and final nucleo in struct
         # If we have stacked base pairs, include indices of the bonds
         # between the stacked nucleobases
         if "STACK" in struct.desc:
@@ -191,7 +192,7 @@ def break_long(long, cleav_prop, cleav_prop_struct, mapping):
         structs = seqfold.fold(seq)
         struct_bonds = structured_regions(structs)
 
-        # Calculate the length of the strand and the number of bonds
+   # Calculate the length  of the strand and the number of bonds
         order = len(seq)
         num_bonds = order - 1
 
@@ -293,7 +294,27 @@ def average_sequence_length_and_longest_seq(filename):
     return avg_lengths, "LONGEST SEQUENCE FOUND: " + longest_sequence
 
 
-print(average_sequence_length_and_longest_seq("test_file_1.txt"))
+#print(average_sequence_length_and_longest_seq("test_file_1.txt"))
 
+def generate_sequence_length_histogram(filename):
+    opened = open(filename, "r")
+    sequences = opened.read().splitlines()
 
+    sequence_lengths = []
+    for seq in sequences:
+        if seq.startswith("*"):
+            continue
+        else:
+            sequence_lengths.append(len(seq))
+            
+
+    plt.hist(sequence_lengths, bins=100)
+    plt.yscale("log")
+    plt.xlabel('Sequence Length (bp)')
+    plt.ylabel('Frequency')
+    plt.title('Sequence Length Histogram')
+    plt.savefig('sequence_length_histogram.jpg')  # Save the histogram as a .jpg file
+    plt.show()
+
+    opened.close()
 

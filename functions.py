@@ -1,6 +1,10 @@
 import numpy as np
+np.random.seed(0)
 import seqfold
 import matplotlib.pyplot as plt
+import os
+import time
+
 
 def order_of_mag(a):
     """Calculate the order of magnitude of integer elements in an array.
@@ -294,7 +298,6 @@ def average_sequence_length_and_longest_seq(filename):
     return avg_lengths, "LONGEST SEQUENCE FOUND: " + longest_sequence
 
 
-#print(average_sequence_length_and_longest_seq("test_file_1.txt"))
 
 def generate_sequence_length_histogram(filename):
     opened = open(filename, "r")
@@ -318,3 +321,25 @@ def generate_sequence_length_histogram(filename):
 
     opened.close()
 
+
+
+current_time_struct = time.localtime()
+formatted_time = str(time.strftime("%Y-%m-%d %H:%M", current_time_struct))
+def create_blank_text_file(base_directory, folder_name):
+    """
+    Creates a new text file with a unique name based on time function was run
+    Saves it to the location on the harddrive specified by base_directory
+    """
+
+    try:
+        folder_name = f"{folder_name}"
+        output_folder = os.path.join(base_directory, folder_name)
+        os.mkdir(output_folder)
+        file_name = f"run_{formatted_time}.txt"
+        file_path = os.path.join(output_folder, file_name)
+        with open(file_path, "w"):
+            pass
+  
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+        return False

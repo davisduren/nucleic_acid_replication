@@ -1,11 +1,9 @@
 import matplotlib.pyplot as plt
 import seqfold
+import os
 from functions import *
+import time
 
-
-
-
-#print(show_most_developed_sequences("test_file_1.txt"))
 
 
 #calculate the average length of the sequences returned by the main program
@@ -126,7 +124,53 @@ def find_structured_regions_in_file(file_to_write, file_to_read):
 
 
 #find_structured_regions_in_file('new_test_txt.txt', 'test_file_1.txt')
-    
 
-    
+
+""" creating a function to create a new folder each time the code is run 
+this folder will contain the .txt file(s) and the histogram of each run
+this is done so each run can be easily separated and stored so we can determine consitency
+between runs"""
+
+"""
+def create_and_save_output(directory, folder_name, text_files, histogram,):
+
+    output_folder = os.path.join(directory, folder_name)
+    os.mkdir(output_folder)
+    with open(os.path.join(output_folder, "sequences.txt"), "w") as file:
+        file.write(text_files)
+
+    with open(os.path.join(output_folder, "histogram.jpg"), "wb") as file:
+        file.write(histogram)
+
+    pass
+"""
+
+
+
+current_time_struct = time.localtime()
+formatted_time = str(time.strftime("%Y-%m-%d %H:%M", current_time_struct))
+def create_blank_text_file(base_directory, folder_name,):
+    """
+    Creates a new text file with a unique name based on time function was run
+    Saves it to the location on the harddrive specified by base_directory
+    """
+
+    try:
+        folder_name = f"{folder_name}"
+        output_folder = os.path.join(base_directory, folder_name)
+        os.mkdir(output_folder)
+        file_name = f"run_{formatted_time}.txt"
+        file_path = os.path.join(output_folder, file_name)
+        with open(file_path, "w"):
+            pass
+  
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+        return False  
+
+base_directory = "/Users/dduren3/Desktop/nucleic acid replication/nucleic_acid_replication-main/attempt1"
+custom_folder_name = formatted_time
+#create_text_file(base_directory, custom_folder_name)
+
+
 

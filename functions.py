@@ -6,6 +6,10 @@ import os
 import time
 
 
+current_time_struct = time.localtime()
+formatted_time = str(time.strftime("%Y-%m-%d %H:%M", current_time_struct))
+
+
 def order_of_mag(a):
     """Calculate the order of magnitude of integer elements in an array.
 
@@ -298,10 +302,12 @@ def average_sequence_length_and_longest_seq(filename):
     return avg_lengths, "LONGEST SEQUENCE FOUND: " + longest_sequence
 
 
-
-def generate_sequence_length_histogram(filename):
-    opened = open(filename, "r")
+"""
+def generate_sequence_length_histogram(file_path, folder_name, iter_num =0):
+    string_iter_num = "_" + str(iter_num)
+    opened = open(file_path, "r")
     sequences = opened.read().splitlines()
+
 
     sequence_lengths = []
     for seq in sequences:
@@ -313,33 +319,125 @@ def generate_sequence_length_histogram(filename):
 
     plt.hist(sequence_lengths, bins=100)
     plt.yscale("log")
-    plt.xlabel('Sequence Length (bp)')
+    plt.xlabel('Sequence Length (nt)')
     plt.ylabel('Frequency')
-    plt.title('Sequence Length Histogram')
-    plt.savefig('sequence_length_histogram.jpg')  # Save the histogram as a .jpg file
-    plt.show()
+    plt.title('Sequence Length Histogram' + str(formatted_time))
+
+    #if file path of output is ever changed from ./output/ , below will need to be changed 
+    output_folder = "./output/" + str(folder_name)
+    output_file_path = os.path.join(output_folder, f"sequence_length_histogram_{formatted_time}_{string_iter_num}.jpg")
+    plt.savefig(output_file_path)
+
+
+    opened.close()
+
+"""
+def generate_sequence_length_histogram(file_path, folder_name, progress_report_num):
+
+    opened = open(file_path, "r") # needs to be error contingency file
+    sequences = opened.read().splitlines()
+        
+    sequence_lengths = []
+
+    for i, seq in enumerate(sequences):
+        if seq.startswith("!!" + str(progress_report_num)):
+            break
+    for seq in sequences[i+1:]:
+        sequence_lengths.append(len(seq))
+            
+    plt.clf() # clears any data that may still be cached
+    plt.hist(sequence_lengths, bins=100)
+    plt.yscale("log")
+    plt.xlabel('Sequence Length (nt)')
+    plt.ylabel('Frequency')
+    plt.title('Sequence Length Histogram' + str(formatted_time) + "___run_" + str(progress_report_num))
+
+    try:
+        output_folder = "./output/" + str(folder_name)
+        output_file_path = os.path.join(output_folder, f"{progress_report_num}_sequence_length_histogram_{formatted_time}.jpg")
+        plt.savefig(output_file_path)
+
+    except Exception as e:
+        return e
 
     opened.close()
 
 
+    
+def create_blank_text_file(base_directory, folder_name, param_for_file_name): 
+    #param_file name describes what the txt file being made is used for --
+    #ex. error_contingency means this txt file produced is backups of each run
 
-current_time_struct = time.localtime()
-formatted_time = str(time.strftime("%Y-%m-%d %H:%M", current_time_struct))
-def create_blank_text_file(base_directory, folder_name):
-    """
-    Creates a new text file with a unique name based on time function was run
-    Saves it to the location on the harddrive specified by base_directory
-    """
 
+    #Creates a new text file with a unique name based on time function was run
+    #Saves it to the location on the harddrive specified by base_directory
+    
     try:
-        folder_name = f"{folder_name}"
+        if not os.path.exists("./output/"):
+            os.mkdir("./output/")
+
         output_folder = os.path.join(base_directory, folder_name)
         os.mkdir(output_folder)
-        file_name = f"run_{formatted_time}.txt"
+        file_name = f"{param_for_file_name}_run_{folder_name}.txt" #note param being used in title of file
         file_path = os.path.join(output_folder, file_name)
         with open(file_path, "w"):
             pass
+        
+        return file_path, output_folder
   
     except Exception as e:
         print(f"An error occurred: {str(e)}")
         return False
+
+
+
+"""NOVEL 2 9 24"""
+
+     
+def error_safeguard_system(file_being_written_to, it_num, list_of_sequences):
+    try:
+        file_being_written_to.write("!!" + str(it_num) + "\n")
+        for seq in list_of_sequences:
+            file_being_written_to.write(seq + "\n")
+
+
+    except Exception as E:
+        print(E)
+
+
+
+def generate_final_seq_file(directory, final_file_name):
+    try:
+        os.makedirs(directory, exist_ok=True)
+        file_path = os.path.join(directory, final_file_name)
+        
+        with open(file_path, "w"):
+            pass  
+        
+        print("Final text file created.")
+        return file_path  
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+        return None
+
+
+#NOVEL 2/17/24
+def generate_line_plot_of_longest_strand(list_w_lengths, output_folder_name, formatted_time, n_iterations):
+    x_values = range(1,n_iterations +1)
+
+
+    plt.plot(x_values, list_w_lengths)
+
+    plt.xlabel("Iteration number")
+    plt.ylabel("Length of longest strand")
+    plt.title("Length of longest strand during each iteration")
+
+    try:
+        output_folder = "./output/" + str(output_folder_name)
+        output_file_path = os.path.join(output_folder, f"_longest_strand_length_graph_{formatted_time}.jpg")
+        plt.savefig(output_file_path)
+
+
+    except Exception as e:
+        print(e)
+        print("line plot of longest strand function has failed")

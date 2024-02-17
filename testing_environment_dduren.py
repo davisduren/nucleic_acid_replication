@@ -6,6 +6,74 @@ import time
 
 
 
+
+
+
+
+
+
+"""NOVEL 2/16/24
+Have histogram get made each progress_report freq of runs 
+to be able to visually see when we hit steady state"""
+
+#MODIFIED histogram function to achieve above goal
+def generate_sequence_length_histogram(file_path, folder_name, progress_report_num = None):
+
+    opened = open(file_path, "r") # needs to be error contingency file
+    sequences = opened.read().splitlines()
+
+    first_histogram = True
+    sequence_lengths = []
+    for seq in sequences:
+        if seq.startswith("!!"):
+            first_histogram = False
+
+    if first_histogram:
+        for seq in sequences:
+            if seq.startswith("*") or not seq.strip():
+                continue
+            else:
+                sequence_lengths.append(len(seq))
+
+    else:
+    
+        for seq in sequences:
+            if not seq.startswith("!!" + str(progress_report_num)):
+                continue
+            else:
+                sequence_lengths.append(len(seq))
+            
+
+    plt.hist(sequence_lengths, bins=100)
+    plt.yscale("log")
+    plt.xlabel('Sequence Length (nt)')
+    plt.ylabel('Frequency')
+    plt.title('Sequence Length Histogram' + str(formatted_time))
+
+    try:
+        #"./output/"
+        output_folder = "./output/" + str(folder_name)
+        output_file_path = os.path.join(output_folder, f"{progress_report_num}_sequence_length_histogram_{formatted_time}.jpg")
+        plt.savefig(output_file_path)
+
+    except Exception as e:
+        print(e)
+        print("The saving of histogram has failed - check output folder?")
+
+    opened.close()
+
+generate_sequence_length_histogram("/Users/dduren3/Desktop/nucleic_acid_replication/output/2024-02-16 19:08/Error_Contingency_run_2024-02-16 19:08.txt", "./output/2024-02-16 19/08", 750 )
+
+
+print("LINE 65 Running")
+
+
+
+
+
+
+
+
 #calculate the average length of the sequences returned by the main program
 #will also find the longest sequence generated throughout any iteration and return it 
 def average_sequence_length_and_longest_seq(filename):
@@ -64,7 +132,6 @@ def generate_sequence_length_histogram(filename):
 
     opened.close()
 # Usage example
-#generate_sequence_length_histogram('test_file_1.txt')
 
 
 
@@ -173,4 +240,164 @@ custom_folder_name = formatted_time
 #create_text_file(base_directory, custom_folder_name)
 
 
+"""NOVEL ERROR RECOVERY SYSTEM
+A note about all this:
+I wrote this in about 10 hours after an 11 day run failed and lost it all
+What i have here works, but it is not very good
+First, you must modify the file name of error_contingency file as follows:
+ex. its name is Error_Contingency_run_2024-02-09 22/35.txt
+You must change it to Error_Contingency_run_2024-02-09 22-35.txt
+See the dash at the end? You must do this manually
 
+"""
+
+
+
+inverse_mapping = {"A": "1", "G": "2", "C" : "3", "U" : "4"}
+
+
+def read_error_save_txt_file(file_path):
+    """Read a text file and return its contents as an array of strings.
+
+    Parameters
+    ----------
+    file_path : str
+        Path to the text file.
+
+    Returns
+    -------
+    np.ndarray
+        Array of strings containing the lines of the text file.
+    """
+    with open(file_path, 'r') as file:
+        lines = [line.strip() for line in file if not (line.startswith('*') or line.startswith("!!"))]
+    return np.array(lines)
+
+
+def convert_str_to_int_seq(seq_array_s, reverse_mapping):
+    """Convert string nucleic acid sequences to integers.
+
+    Parameters
+    ----------
+    seq_array_s : np.ndarray
+        Array of string nucleic acid strands
+    reverse_mapping : dict
+        Map nucleobase names (A, G, C, U) with integer numbers (1, 2, 3, 4)
+    
+    Returns
+    -------
+    np.ndarray
+        Array of integer nucleic acid strands
+    """
+    # Convert array elements to strings
+    seq_array = seq_array_s.astype(str)
+    
+    # Replace each base name with the corresponding number
+    for k, v in reverse_mapping.items():
+        seq_array = [s.replace(k, str(v)) for s in seq_array]
+    
+    return np.array(seq_array, dtype=int)  # Convert array elements back to integers
+
+
+# Define the mapping from nucleobase names to str numbers
+reverse_mapping = {"A": "1", "G": "2", "C": "3", "U": "4"}
+file_path = "/Users/dduren3/Desktop/nucleic_acid_replication/output/2024-02-09 22:35/Error_Contingency_run_2024-02-09 22-35.txt"  # Replace 'your_file_path.txt' with the actual path to your file
+
+#place file path here
+sequence_letters = read_error_save_txt_file(file_path)
+sequence_numbers = convert_str_to_int_seq(sequence_letters, inverse_mapping)
+print(sequence_numbers)
+
+
+
+
+def delete_until_special_chars(file_path, save_num_to_find):
+    line_we_need = "!!" + str(save_num_to_find)
+    with open(file_path, "r") as file:
+        lines = file.readlines()
+
+
+    index = -1
+    settings_str = ""
+    for i, line in enumerate(lines):
+        if line.startswith("*"):
+            settings_str += line
+        settings_str += "\n"
+
+        if line.startswith(line_we_need):
+            index = i
+            break
+    
+    if index != -1:
+        with open(file_path, 'w') as file:
+                file.writelines(lines[index:])
+    else:
+        print("something is amiss with delete function")
+
+
+def error_continuation(it_failed_at, end_iteration_num, progress_report_freq, file_with_backups, sequence_numbers = None):
+    #it failed at == when the code failed (iteration 1308 for ex)
+    #end_iteration_num == ultimate goal of how many times to run code (ex. 1500)
+    #progress_report_freq == number of it last time code was saved before it failed
+    #file_with_backups == name of txt file with backups
+    #sequence_numbers == variable thats a numpy array of file containing backups, converted to nums
+
+
+    #check if delete_until_special_chars has already been run
+    with open(file_with_backups, "r") as checking:
+        first_line = checking.readline().strip()
+        if first_line.startswith("*"):
+            delete_until_special_chars(file_with_backups)
+        else:
+            pass
+        
+            
+    print("runnong error contin")
+    sequence_letters = read_error_save_txt_file(file_path)
+    sequence_numbers = convert_str_to_int_seq(sequence_letters, inverse_mapping)
+    """with open(file_with_backups, "r") as file:
+        for line in file:
+            line = line.strip()
+            if not line or line.startswith("!!" + str(progress_report_freq)):
+                continue"""
+    print(sequence_numbers)
+    
+
+
+
+
+file_with_backups = "/Users/dduren3/Desktop/nucleic_acid_replication/output/2024-02-09 22:35/Error_Contingency_run_2024-02-09 22-35.txt"
+
+error_continuation(400, 500, 250, file_with_backups)
+
+
+
+
+
+#ERROR CONTINUITY STILL UNDER DEV 2/16/24
+
+
+#NOVEL 2 17 24
+
+def generate_line_plot_of_longest_strand(list_w_lengths, output_folder_name, formatted_time, n_iterations):
+    x_values = range(1,n_iterations +1)
+
+
+    plt.plot(x_values, list_w_lengths)
+
+    plt.xlabel("Iteration number")
+    plt.ylabel("Length of longest strand")
+    plt.title("Length of longest strand during each iteration")
+
+
+
+
+    try:
+        output_folder = "./output/" + str(output_folder_name)
+        output_file_path = os.path.join(output_folder, f"_longest_strand_length_graph_{formatted_time}.jpg")
+        plt.savefig(output_file_path)
+
+
+    except Exception as e:
+        print(e)
+        print("line plot of longest strand function has failed")

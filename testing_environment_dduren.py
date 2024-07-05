@@ -3,8 +3,418 @@ import seqfold
 import os
 from functions import *
 import time
+import sys
+from seqfold import dg, dg_cache, fold, Cache, Struct
+###6/29/24 backup
+"""    strands_in_decreasing_order = np.sort(nucleotide_list)[::-1]
+    for strand in strands_in_decreasing_order:
+        strand_length_tracking_list.append(len(str(strand)))
+        #below is NOVEL 6/20/24
+        #i already had this strands in decreasing order, may as well recycle it for the "if strand is >= x length, throw it out of the pool" test
+
+            
+        if throwing_long_ones_out == True:
+
+            if len(str(strand)) >= length_to_throw_out: # means we want to throw that strand out
+                strand_numpyarray = np.array(strand)
+                strand_str = str(convert_int_to_str_seq(strand_numpyarray, mapping))
+                dg_value = seqfold.dg(strand_str)
+                if seqfold.dg(strand_str) <= dG_critical_value: # means it is more negative than our dG_crit
+                    print(strand_str + str(dg_value))
+                    indices_to_remove = np.where(nucleotide_list == strand)[0]
+                    list_of_seqs_over_length_threshold.append(strand) # see "if it%n_iterations ==0:" line
+                    nucleotide_list = np.delete(nucleotide_list , indices_to_remove) 
+                    stringified_nt_list = map(str, nucleotide_list)
+                    concatenated_digits = ''.join(stringified_nt_list)
+                    total_nt = len(concatenated_digits)
+                    print(total_nt) # without any deletions, should be 4* whatever init_nuc_num is. If not, means this code is working
+
+            """
 
 
+
+###6/21/24 
+"""How can we quantitate the number of base pairs of a folded 20 mer or similar length sequence?"""
+
+
+
+def structured_regions(structs, dG_critical = -1.5): 
+    #if I change dG_critical to a negative value, it deletes internal loops from structs. Why? No idea...
+    ###NOVEL 6/22/24 - shifting this over to dG calculation
+
+
+    """Predict structured regions in a nucleic acid strand using seqfold 
+
+    Identifies stacked base pairs, hairpins, and bulges in the sequence.
+
+    Parameters
+    ----------
+    structs : list of seqfold.fold.Struct objects
+
+    Returns
+    -------
+    struct_bonds : np.ndarray
+        indices of bonds in structured regions
+    """
+
+    struct_bonds = []
+
+    # Loop over all structured regions in a given strand
+    for struct in structs:
+        string_struct_split = str(struct).split()
+        if len(string_struct_split) >=3:
+            dG_value = float(string_struct_split[2])
+        else:
+            raise ValueError
+        
+        if dG_value >= dG_critical: #means that we have an unstable structure, remove from list of potential "structs"
+            continue
+
+
+        i, j = struct.ij[0][0], struct.ij[0][1] #initial and final nucleo in struct
+        # If we have stacked base pairs, include indices of the bonds
+        # between the stacked nucleobases
+        if "STACK" in struct.desc:
+
+            length = len(struct.desc.split(":")[1].split("/")[0])
+            for bond in range(i, i+length-1):
+                struct_bonds.append(bond)
+            for bond in range(j-length+1, j):
+                struct_bonds.append(bond) 
+
+        # If we have hairpins or bulges, include indices of all the
+        # bonds between the beginning and end of the structured region
+                
+        elif ("HAIRPIN" in struct.desc):
+            i +=1
+            j +=1 ### !!! CRITICAL FIX !!! 6/22/24    i think        
+
+            for bond in range(i,j+1):
+                struct_bonds.append(bond)
+
+            
+        elif ("BULGE" in struct.desc):
+            for bond in range(i, j):
+                struct_bonds.append(bond)
+
+            
+    struct_bonds = np.array(sorted(struct_bonds), dtype=np.int64)
+
+
+    return struct_bonds
+
+
+#
+
+rna_sequence = "AGCACAAGUCUUCGCAAUGGUUUCUCUUG" 
+
+
+structs = seqfold.fold(rna_sequence)
+struct_bonds = structured_regions(structs)
+
+print(struct_bonds)
+
+
+
+
+
+
+
+
+
+
+
+
+
+sys.exit()
+
+
+\
+"""below is modified structured_regions based off of dG for each structure
+def structured_regions(structs, dG_critical = -6.5): 
+    #if I change dG_critical to a negative value, it deletes internal loops from structs. Why? No idea...
+    ###NOVEL 6/22/24 - shifting this over to dG calculation
+
+
+    Predict structured regions in a nucleic acid strand using seqfold 
+
+    Identifies stacked base pairs, hairpins, and bulges in the sequence.
+
+    Parameters
+    ----------
+    structs : list of seqfold.fold.Struct objects
+
+    Returns
+    -------
+    struct_bonds : np.ndarray
+        indices of bonds in structured regions
+    
+
+    struct_bonds = []
+
+    test_list_dG_structs = []
+
+    # Loop over all structured regions in a given strand
+    for struct in structs:
+        string_struct_split = str(struct).split()
+        if len(string_struct_split) >=3:
+            dG_value = float(string_struct_split[2])
+        else:
+            raise ValueError
+        
+        if dG_value >= dG_critical: #means that we have an unstable structure, skip it 
+
+            continue
+        if dG_value <= dG_critical:
+            print(dG_value)
+
+
+
+        i, j = struct.ij[0][0], struct.ij[0][1] #initial and final nucleo in struct
+        # If we have stacked base pairs, include indices of the bonds
+        # between the stacked nucleobases
+        if "STACK" in struct.desc:
+
+            length = len(struct.desc.split(":")[1].split("/")[0])
+            for bond in range(i, i+length-1):
+                struct_bonds.append(bond)
+            for bond in range(j-length+1, j):
+                struct_bonds.append(bond) 
+
+        # If we have hairpins or bulges, include indices of all the
+        # bonds between the beginning and end of the structured region
+                
+        elif ("HAIRPIN" in struct.desc):
+            i +=1
+            j +=1 ### !!! CRITICAL FIX (i think) !!! 6/22/24           
+
+            for bond in range(i,j+1):
+                struct_bonds.append(bond)
+
+            
+        elif ("BULGE" in struct.desc):
+            for bond in range(i, j):
+                struct_bonds.append(bond)
+
+            
+    struct_bonds = np.array(sorted(struct_bonds), dtype=np.int64)
+
+
+
+    print(test_list_dG_structs)
+    return struct_bonds"""
+
+
+##
+
+"""Below is untouched structured_regions for contingency
+
+def structured_regions(structs):
+    #below start quotations
+    Predict structured regions in a nucleic acid strand using seqfold 
+
+    Identifies stacked base pairs, hairpins, and bulges in the sequence.
+
+    Parameters
+    ----------
+    structs : list of seqfold.fold.Struct objects
+
+    Returns
+    -------
+    struct_bonds : np.ndarray
+        indices of bonds in structured regions
+    #end quotations
+    
+
+    struct_bonds = []
+
+    # Loop over all structured regions in a given strand
+    for struct in structs:
+        i, j = struct.ij[0][0], struct.ij[0][1] #initial and final nucleo in struct
+        # If we have stacked base pairs, include indices of the bonds
+        # between the stacked nucleobases
+        if "STACK" in struct.desc:
+            length = len(struct.desc.split(":")[1].split("/")[0])
+            for bond in range(i, i+length-1):
+                struct_bonds.append(bond)
+            for bond in range(j-length+1, j):
+                struct_bonds.append(bond) 
+
+        # If we have hairpins or bulges, include indices of all the
+        # bonds between the beginning and end of the structured region
+        elif ("HAIRPIN" in struct.desc) or ("BULGE" in struct.desc):
+            for bond in range(i, j):
+                struct_bonds.append(bond)
+
+            
+    struct_bonds = np.array(sorted(struct_bonds), dtype=np.int64)
+
+    return struct_bonds
+
+"""
+
+
+
+"""NOVEL 3/1/24
+Make function that will track seen tetraloops -
+attempting to modify structured_regions function to do this 
+"""
+
+#below returns just a list with all possible tetraloop combos
+#we use this to check later on if our tetraloop has been found yet at any time
+
+def generate_all_combinations():
+    combinations = []
+    nucleotides = ['A', 'U', 'G', 'C']
+    for nucleotide1 in nucleotides:
+        for nucleotide2 in nucleotides:
+            for nucleotide3 in nucleotides:
+                for nucleotide4 in nucleotides:
+                    combination = nucleotide1 + nucleotide2 + nucleotide3 + nucleotide4
+                    combinations.append(combination)
+    return combinations
+
+
+
+def structured_regions(structs):
+    """Predict structured regions in a nucleic acid strand using seqfold 
+
+    Identifies stacked base pairs, hairpins, and bulges in the sequence.
+
+    Parameters
+    ----------
+    structs : list of seqfold.fold.Struct objects
+
+    Returns
+    -------
+    struct_bonds : np.ndarray
+        indices of bonds in structured regions
+    """
+
+    struct_bonds = []
+
+    all_possible_tetraloops = generate_all_combinations()
+    tetraloops = []
+
+    # Loop over all structured regions in a given strand
+    for struct in structs:
+        i, j = struct.ij[0][0], struct.ij[0][1] #initial and final nucleo in struct
+        # If we have stacked base pairs, include indices of the bonds
+        # between the stacked nucleobases
+        if "STACK" in struct.desc:
+            length = len(struct.desc.split(":")[1].split("/")[0])
+            for bond in range(i, i+length-1):
+                struct_bonds.append(bond)
+            for bond in range(j-length+1, j):
+                struct_bonds.append(bond) 
+
+        # If we have hairpins or bulges, include indices of all the
+        # bonds between the beginning and end of the structured region
+        elif ("HAIRPIN" in struct.desc):
+            if j-i ==5: # means tetraloop present
+                for bond in range(i,j):
+                    tetraloops.append(bond)
+                    print(tetraloops)
+                    print("tetealoop shit working fine")
+
+            else:
+                for bond in range(i,j):
+                    struct_bonds.append(bond)
+
+
+
+            pass
+            
+        elif ("BULGE" in struct.desc):
+            for bond in range(i, j):
+                struct_bonds.append(bond)
+
+            
+    struct_bonds = np.array(sorted(struct_bonds), dtype=np.int64)
+
+    return struct_bonds
+
+
+
+
+
+"""NOVEL 2/23/24
+Make percentage over certain length tracking function"""
+def percent_over_certain_length(list_of_lengths, len1, len2, len3, len4):
+    #list of lengths = list with lengths of all strands - this list is reset during each iteration
+    #file_path = file that this data with the percentages will be saved to during each iteration
+    #folder name = where we will save the graph and file with data to
+    #len1 = shortest length we will check (ex. 10) - these are ints
+    #len2 = 2nd shortest length we are interested in (ex. 20)
+    #etc
+
+
+    number_of_unique_strands = 0
+    
+    num_len_1 = 0
+    num_len_2 = 0
+    num_len_3 = 0
+    num_len_4 = 0
+
+
+    for strand in list_of_lengths:
+        number_of_unique_strands +=1
+        if strand >=len4:
+            num_len_4 +=1
+        elif strand >=len3:
+            num_len_3 +=1
+        elif strand >=len2:
+            num_len_2 +=1
+        elif strand >=len1:
+            num_len_1 +=1
+    
+    # percentages
+    # Calculate the percentages and round to three decimal places
+    percent_len_4 = round((num_len_4 / number_of_unique_strands) * 100, 3)
+    percent_len_3 = round((num_len_3 / number_of_unique_strands) * 100, 3)
+    percent_len_2 = round((num_len_2 / number_of_unique_strands) * 100, 3)
+    percent_len_1 = round((num_len_1 / number_of_unique_strands) * 100, 3)
+
+
+    return percent_len_1, percent_len_2, percent_len_3, percent_len_4
+    #returns shortest --> longest
+
+    
+    
+def percentage_plot(list_of_percentages, output_folder_name, formatted_time):
+
+    #list of percentages is a list of lists -- the total number of items in the main list 
+    #is the same as n_iterations completed
+    #each sublist is the percentage of strands over their given length at that iteration
+    #first item in each sublist is len1, 2nd is len2, etc
+    #formatted time = the output directory (since the name of output directory is 
+    #simply the formatted time variable from main file)
+
+    x = range(len(list_of_percentages))  # x axis will be number of iterations completed
+    y_values = [[] for _ in range(len(list_of_percentages[0]))]  # makes empty lists for each y-value
+    
+    # Extract y-values from the sublists - each sublist is the list of percentages from any given iteration
+    for i in range(len(list_of_percentages[0])):
+        y_values = [sublist[i] for sublist in list_of_percentages]  # Extract the items at index i from each sublist
+        plt.plot(x, y_values, label=f"Sublist Item {i+1}")
+    
+    plt.xlabel("Number of iterations")
+    plt.ylabel("Percentage of strands over given length")
+    plt.title("Percentage of strands over a given length over time")
+    plt.legend()  # Add legend to show which line corresponds to which y-value
+    plt.show()
+
+    try:
+        output_folder = "./output/" + str(output_folder_name)
+        output_file_path = os.path.join(output_folder, f"_percentage_strands_over_lengthX_{formatted_time}.jpg")
+        plt.savefig(output_file_path)
+
+
+    except Exception as e:
+        print(e)
+        print("Saving plot of percentage plot function has failed")
+
+    
 
 
 

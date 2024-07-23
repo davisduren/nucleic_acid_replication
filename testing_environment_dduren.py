@@ -5,6 +5,15 @@ from functions import *
 import time
 import sys
 from seqfold import dg, dg_cache, fold, Cache, Struct
+
+
+
+
+strand = "AGUCAGUCAUGCGACUGACU"
+
+dg = seqfold.dg(strand)
+print(dg)
+
 ###6/29/24 backup
 """    strands_in_decreasing_order = np.sort(nucleotide_list)[::-1]
     for strand in strands_in_decreasing_order:
@@ -32,7 +41,7 @@ from seqfold import dg, dg_cache, fold, Cache, Struct
             """
 
 
-
+sys.exit()
 ###6/21/24 
 """How can we quantitate the number of base pairs of a folded 20 mer or similar length sequence?"""
 
@@ -112,7 +121,6 @@ rna_sequence = "AGCACAAGUCUUCGCAAUGGUUUCUCUUG"
 structs = seqfold.fold(rna_sequence)
 struct_bonds = structured_regions(structs)
 
-print(struct_bonds)
 
 
 

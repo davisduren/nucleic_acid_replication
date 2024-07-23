@@ -122,7 +122,7 @@ def break_short(short, cleav_prop):
 
 
 
-def structured_regions(structs, dG_critical = -6.5): 
+def structured_regions(structs, dG_crit = -6.5): 
 
 
     """Predict structured regions in a nucleic acid strand using seqfold 
@@ -161,9 +161,11 @@ def structured_regions(structs, dG_critical = -6.5):
                 
         elif ("HAIRPIN" in struct.desc):
             i +=1
-            j +=1 ### !!! CRITICAL FIX (i think) !!! 6/22/24           
+            j +=1 ### !!! CRITICAL FIX (i think) !!! 6/22/24 
+            #?? not sure - just indexing difference? 
+            #is it possible to compute bp instead of hairpins?         
 
-            for bond in range(i,j+1):
+            for bond in range(i,j+1): #either way, we need to include last bond in here
                 struct_bonds.append(bond)
 
             

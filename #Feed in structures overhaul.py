@@ -40,7 +40,7 @@ def order_of_mag(a):
 
     return order
 
-def num_nucleo(nucleotide_list):
+def num_nucleo(int_nt_list):
     """Calculate the total number of nucleotides in an array.
 
     Can be used to check that we are not accidentally deleting any
@@ -48,7 +48,7 @@ def num_nucleo(nucleotide_list):
 
     Parameters
     ----------
-    nucleotide_list : np.ndarray
+    int_nt_list : np.ndarray
         Array containing all nucleic acid integer sequences
 
     Returns
@@ -58,7 +58,7 @@ def num_nucleo(nucleotide_list):
     """
 
     summ = 0
-    for el in nucleotide_list:
+    for el in int_nt_list:
         summ += len(str(el))
     return summ
 
@@ -131,9 +131,9 @@ def break_short(short, cleav_prop):
 
 
 
-def structured_regions(structs, dG_critical = -6.5): 
+def structured_regions(structs): 
     #if I change dG_critical to a negative value, it deletes internal loops from structs. Why? No idea...
-    ###NOVEL 6/22/24 - shifting this over to dG calculation
+
 
 
     """Predict structured regions in a nucleic acid strand using seqfold 
@@ -174,7 +174,7 @@ def structured_regions(structs, dG_critical = -6.5):
                 
         elif ("HAIRPIN" in struct.desc):
   
-            for bond in range(i,j+1):
+            for bond in range(i,j): #should this be j+1? or just j??
                 struct_bonds.append(bond)
 
             
@@ -233,12 +233,6 @@ def break_long(long, cleav_prop, cleav_prop_struct, mapping):
         # Identify structured regions
         structs = seqfold.fold(seq)
         struct_bonds  = structured_regions(structs)
-        #NOVEL 3/3/24- tetraloops_seen_this_iteration is just there so struct_bonds isnt a tuple and 
-        #so tetraloops_seen_this_iteration doesnt break anything
-        #also, this since this function is the only time structured_regions() is called
-        #it must be the one to return the tetraloops_seen_this_iteration to main ipynb
-        #REVISION 3/19/24 - the above, we have now decided, is not useful and 
-        #this tetraloop function has since been inactivated 
 
    # Calculate the length  of the strand and the number of bonds
         order = len(seq)
@@ -248,12 +242,13 @@ def break_long(long, cleav_prop, cleav_prop_struct, mapping):
         cleave = np.random.random(num_bonds) < cleav_prop
         cleave[struct_bonds] = np.random.random(struct_bonds.size) < cleav_prop_struct
 
+        #^everywhere that is not a "structured" bond is assigned higher chance of cleavage
+
         new_long = []
 
         i = 0
         part = int_seq
-        print(part)
-        print("line 256")
+
         n_bond = 1
 
         # Loop over all bonds in the strand
@@ -347,11 +342,12 @@ def average_sequence_length_and_longest_seq(filename):
 
 def generate_sequence_length_histogram(file_path, folder_name, progress_report_num):
 
+
+
     opened = open(file_path, "r") # needs to be error contingency file
     sequences = opened.read().splitlines()
         
     sequence_lengths = []
-
     for i, seq in enumerate(sequences):
         if seq.startswith("!!" + str(progress_report_num)): 
             break
@@ -402,16 +398,48 @@ def create_blank_text_file(base_directory, folder_name, param_for_file_name = ""
         return False
 
 
-     
+   
 def error_safeguard_system(file_being_written_to, it_num, list_of_sequences):
     try:
-        file_being_written_to.write("!!" + str(it_num) + "\n")
-        for seq in list_of_sequences:
-            file_being_written_to.write(seq + "\n")
+        file_opened_here = False
+        if isinstance(file_being_written_to, str):
+            file_being_written_to = open(file_being_written_to, "a")
+            file_opened_here = True
 
+        if not file_being_written_to.closed:
+            file_being_written_to.write("!!" + str(it_num) + "\n")
+            for seq in list_of_sequences:
+                file_being_written_to.write(seq + "\n")
+                file_being_written_to.flush() #if this line is removed the whole function breaks
+
+        if file_opened_here:
+            file_being_written_to.close()
+
+    except Exception as e:
+        print(e)
+
+
+    
+    """
+    try:
+        if not file_being_written_to.closed:
+            print('line')
+
+            file_being_written_to.write("!!" + str(it_num) + "\n")
+            for seq in list_of_sequences:
+                file_being_written_to.write(seq + "\n")
+        else:
+            opened = open(file_being_written_to, "a")
+            opened.write("!!" + str(it_num) + "\n")
+            for seq in list_of_sequences:
+                opened.write(seq + "\n")
+
+        file_being_written_to.close() #LAST UPDATE 7/12/24
+                                        #BREAKS HISTOGRAM FUNCTION BC FILE IS NOW CLOSED
 
     except Exception as E:
         print(E)
+        print("error safeguard sys is erroring")"""
 
 
 
@@ -622,16 +650,16 @@ import seqfold
 seed_value = 0
 np.random.seed(seed_value)
 
-#LAST UPDATE: 6/24/24
+#LAST UPDATE: 7/22/24 - got it working without errors
 
 #below are the variables we manipulate
 
 init_nuc_num = 10000    # number of each base (10k A, 10k U, etc)
-cleav_prop = 0.20    # chance of unstruc regions breaking during given run                  
-cleav_prop_struct = 0.02    # chance of struc region breaking during given run
+cleav_prop = 0.08    # chance of unstruc regions breaking during given run                  
+cleav_prop_struct = 0.008    # chance of struc region breaking during given run
 length_threshold = 10   # we wont check if something less than this long has struc
 n_iterations = 50    # how many runs until completion
-progress_report_freq  = 10   # how often code gives us a progress report / saves data to Error_Contingency file in case of error
+progress_report_freq  = 20   # how often code gives us a progress report / saves data to Error_Contingency file in case of error
 dG_critical_value = -7.5
 
 len1 = 4
@@ -651,8 +679,10 @@ length_threshold_str = "*length_threshold = " + str(length_threshold) + "\n"
 n_iterations_str = "*n_iterations = " + str(n_iterations) + "\n"
 progress_report_freq_str = "*progress_report_freq = " + str(progress_report_freq) + "\n"
 seed_value_str = "*numpy random seed value = " + str(seed_value) + "\n"
+dg_crit_value_str = "*dG_critical_value = " + str(dG_critical_value) + "\n"
 settings_used = init_nuc_num_str + cleav_prop_str + cleav_prop_struct_str +  \
-    length_threshold_str +  n_iterations_str + progress_report_freq_str + seed_value_str +  "\n"
+    length_threshold_str +  n_iterations_str + progress_report_freq_str + seed_value_str + \
+    dg_crit_value_str + "\n"
 
 
 #the below are used to create the file names
@@ -674,7 +704,7 @@ list_of_percent_lens = []
 
 
 ###NOVEL 6/20/24
-throwing_long_ones_out = True # this means we are throwing away all sequences that are longer than a set length to study the emergence of novel sequences
+throwing_long_ones_out = False # this means we are throwing away all sequences that are longer than a set length to study the emergence of novel sequences
 length_to_throw_out = 20
 
 if throwing_long_ones_out == True:
@@ -690,21 +720,22 @@ if throwing_long_ones_out == True:
 
 
 ###NOVEL 6/27/24 feed in file
-init_seq_file = "TEST_HAIRPIN_FILE.txt"
+init_seq_file = "TEST_HAIRPIN_FILE copy.txt"
 file_with_starting_seqs = open(init_seq_file, "r")
 list_of_starting_seqs = []
 for strand in file_with_starting_seqs:
     list_of_starting_seqs.append(strand)
 
-nucleotide_list = [s.strip() for s in list_of_starting_seqs]
+feeding_in_knowns = True
 
-nucleotide_list = np.array(nucleotide_list)
+int_nt_list = [s.strip() for s in list_of_starting_seqs]
 
+int_nt_list = np.array(int_nt_list)
 
 mapping = {"1": "A", "2": "G", "3": "C", "4": "U"}
 
 
-#Need to convert nucleotide_list back into list of ints for below operations
+#Need to convert int_nt_list back into list of ints for below operations
 
 reverse_mapping = {v: k for k, v in mapping.items()}
 
@@ -715,17 +746,13 @@ def convert_strings_to_integers(string_nt_list):
     for string in string_nt_list:
         # Convert each character in the string using the reverse mapping
         integer_string = ''.join(reverse_mapping[char] for char in string)
-        # Convert the concatenated string to an integer
         integer_value = int(integer_string)
-        # Add the integer value to the final list
         converted_list.append(integer_value)
     
     return converted_list
 
 
-int_nt_list = convert_strings_to_integers(nucleotide_list)
-for item in int_nt_list:
-    print(item)                                         
+int_nt_list = np.array(convert_strings_to_integers(int_nt_list))
 ### BELOW BEGINS NUCLEIC COMPUTATIONS
 
 
@@ -740,60 +767,89 @@ for it in range(1, n_iterations + 1):
 
     # Phase 1: Pair nucleotide strands
     # Shuffle list of nucleotide strands
-    np.random.shuffle(nucleotide_list)
+    np.random.shuffle(int_nt_list)
 
     # Take the first half of the strands and calculate their lengths
-    size = nucleotide_list.size
+    size = int_nt_list.size
+
     # Use dtype=object to keep arbitrary integer prevision
-    order = order_of_mag(nucleotide_list[:size//2]).astype(object)
+    order = order_of_mag(int_nt_list[:size//2]).astype(object)
 
 
     # Phase 2: Determine folded structures and randomly break bonds in long strands
-    order = order_of_mag(nucleotide_list).astype(object)
-    mono = nucleotide_list[order == 1]
-    short = nucleotide_list[np.logical_and(order > 1, order < length_threshold)]
-    long = nucleotide_list[order >= length_threshold]
-    
-    
+    order = order_of_mag(int_nt_list).astype(object)
+    mono = int_nt_list[order == 1]
+    short = int_nt_list[np.logical_and(order > 1, order < length_threshold)]
+    long = int_nt_list[order >= length_threshold]
 
-    long = break_long(long, cleav_prop, cleav_prop_struct, mapping)
+    for strand in long:
+        #7/22/2024 current M.O is to just remove the ones from long that fail the test
+        #and paste them into short
 
-        # Phase 3: Randomly break bonds in short strands
-    short = break_short(short, cleav_prop)
-
-    nucleotide_list = np.concatenate((mono, short, long))
-    
-
-
-
-
-    strands_in_decreasing_order = np.sort(nucleotide_list)[::-1]
-    for strand in strands_in_decreasing_order:
-        strand_length_tracking_list.append(len(str(strand)))
-        #below is NOVEL 6/20/24
-        #i already had this strands in decreasing order, may as well recycle it for the "if strand is >= x length, throw it out of the pool" test
-
-            
         if throwing_long_ones_out == True:
 
             if len(str(strand)) >= length_to_throw_out: # means we want to throw that strand out
                 strand_numpyarray = np.array(strand)
                 strand_str = str(convert_int_to_str_seq(strand_numpyarray, mapping))
                 dg_value = seqfold.dg(strand_str)
-                if seqfold.dg(strand_str) <= dG_critical_value: # means it is more negative than our dG_crit
-                    print(strand_str + str(dg_value))
-                    indices_to_remove = np.where(nucleotide_list == strand)[0]
+                if dg_value <= dG_critical_value: # means it is more negative than our dG_crit
+                    indices_to_remove = np.where(int_nt_list == strand)[0]
                     list_of_seqs_over_length_threshold.append(strand) # see "if it%n_iterations ==0:" line
-                    nucleotide_list = np.delete(nucleotide_list , indices_to_remove) 
-                    stringified_nt_list = map(str, nucleotide_list)
+                    int_nt_list = np.delete(int_nt_list , indices_to_remove) 
+                    stringified_nt_list = map(str, int_nt_list)
                     concatenated_digits = ''.join(stringified_nt_list)
                     total_nt = len(concatenated_digits)
                     print(total_nt) # without any deletions, should be 4* whatever init_nuc_num is. If not, means this code is working
+            break
 
+        strand_numpyarray = np.array(strand)
+        print(strand_numpyarray)
+        strand_str = str(convert_int_to_str_seq(strand_numpyarray, mapping))
+        dg_value = seqfold.dg(strand_str)
+        if dg_value <= dG_critical_value: #means its stable & it stays in long
+
+            if str(dg_value) == "-inf": 
+                #OBSERVATION 7/2/24 - seqfold will say some sequences have -infinity dG
+                #These are sequences with NO FOLDING POSSIBLE
+                #they are to be added to short and removed from long
+                print(strand_str + " has dg of -inf")
+                count = np.sum(long == strand)
+                long = long[long != strand]
+                short = np.append(short, [strand] * count)
+            elif str(dg_value) != "-inf":
+                pass
             
+            
+        else: # remove these from long & reassign these strands to short for purposes of breaking
+            count = np.sum(long == strand)
+            long = long[long != strand] #removes EVERY instance within long of this exact strand
+            short = np.append(short, [strand] * count)
 
 
-        
+    if feeding_in_knowns == True: 
+        """this means short may be empty - 
+        we will be feeding in strands that are structured and are longer than
+        the length_threshold (which is usually 10)
+        so to fix this we are just manually making the file 
+        containing our starting structures to include 1 seq that is <10 in length"""
+
+            # Phase 3: Randomly break bonds in short strands
+        try:
+            long = break_long(long, cleav_prop, cleav_prop_struct, mapping)
+            short = break_short(short, cleav_prop)
+        except Exception as E: #vectorize failing if short has size of 0
+            print(E)
+               
+
+        int_nt_list = np.concatenate((mono, short, long))
+
+    
+    
+    strands_in_decreasing_order = np.sort(int_nt_list)[::-1]
+    for strand in strands_in_decreasing_order:
+        strand_length_tracking_list.append(len(str(strand)))
+
+
     #this stuff below makes a list of the percentages over certain lengths 
     #it appends the list of numbers (which are percentages) to another list, list_of_percent_lens
     percent_len1, percent_len2, percent_len3, percent_len4 = percent_over_certain_length(strand_length_tracking_list, len1,len2, len3, len4)
@@ -803,16 +859,14 @@ for it in range(1, n_iterations + 1):
 
 
 
-    longest_strand = strands_in_decreasing_order[0]
-    longest_strand_str = str(longest_strand)
+    longest_strand_str = str(strands_in_decreasing_order[0])
     longest_strand_length_list.append(len(longest_strand_str))
 
 
     #below is 3/19/24
-    summary_for_percent_nt = np.sort(nucleotide_list)[::-1][:10] #gives the 10 longest sequences
+    summary_for_percent_nt = np.sort(int_nt_list)[::-1][:10] #gives the 10 longest sequences
     
     list_of_percentage_nt_involved_in_structure.append(percentage_nt_involved_in_structure(summary_for_percent_nt, mapping))
-
 
     if it%n_iterations == 0: 
         #means code is done, generate final txt file with end results
@@ -822,8 +876,9 @@ for it in range(1, n_iterations + 1):
         final_file_to_write_to.write(settings_used)
         final_file_to_write_to.write("!!" + str(n_iterations) + "\n")
 
-        summary = np.sort(nucleotide_list)[::-1] #to get all lengths, remove [::-1][-:10]
+        summary = np.sort(int_nt_list)[::-1] #to get all lengths, remove [::-1][-:10]
         summary_s = convert_int_to_str_seq(summary, mapping)
+        print(summary_s)
 
 
         for s in summary_s:
@@ -840,13 +895,14 @@ for it in range(1, n_iterations + 1):
                     print(s)
                     seqs_over_certain_length_write.write(s + "\n")
         
+        generate_sequence_length_histogram(final_file_path, folder_name, n_iterations)
 
 
     elif it%progress_report_freq == 0:
         print("\nRESULTS\n")
 
-        summary = np.sort(nucleotide_list)[::-1] # [::-1] = longest --> shortest
-        print(summary)
+        summary = np.sort(int_nt_list)[::-1] # [::-1] = longest --> shortest
+        #print(summary)
         summary_s = convert_int_to_str_seq(summary, mapping)
 
         list_of_seqs = []
@@ -860,7 +916,7 @@ for it in range(1, n_iterations + 1):
 
 
 
-generate_sequence_length_histogram(final_file_path, folder_name, n_iterations)
+#generate_sequence_length_histogram(final_file_path, folder_name, n_iterations)
 #generate_line_plot_of_longest_strand(longest_strand_length_list, folder_name, formatted_time, n_iterations)
 #print(list_of_percent_lens)
 percentage_plot(list_of_percent_lens, folder_name, formatted_time, len1, len2, len3, len4)

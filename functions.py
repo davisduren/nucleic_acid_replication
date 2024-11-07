@@ -122,7 +122,7 @@ def break_short(short, cleav_prop):
 
 
 
-def structured_regions(structs, dG_crit = -6.5): 
+def structured_regions(structs): 
 
 
     """Predict structured regions in a nucleic acid strand using seqfold 
@@ -182,7 +182,7 @@ def structured_regions(structs, dG_crit = -6.5):
 
 
 
-def break_long(long, cleav_prop, cleav_prop_struct, mapping, dG_critical):
+def break_long(long, cleav_prop, cleav_prop_struct, mapping):
     """Randomly break bonds in long nucleic acid sequences.
 
     Long strands have more nucleotides than a given threshold.
@@ -221,13 +221,7 @@ def break_long(long, cleav_prop, cleav_prop_struct, mapping, dG_critical):
     for seq, int_seq in zip(long_s, long):
         # Identify structured regions
         structs = seqfold.fold(seq)
-        struct_bonds  = structured_regions(structs, dG_critical)
-        #NOVEL 3/3/24- tetraloops_seen_this_iteration is just there so struct_bonds isnt a tuple and 
-        #so tetraloops_seen_this_iteration doesnt break anything
-        #also, this since this function is the only time structured_regions() is called
-        #it must be the one to return the tetraloops_seen_this_iteration to main ipynb
-        #REVISION 3/19/24 - the above, we have now decided, is not useful and 
-        #this tetraloop function has since been inactivated 
+        struct_bonds  = structured_regions(structs)
 
    # Calculate the length  of the strand and the number of bonds
         order = len(seq)

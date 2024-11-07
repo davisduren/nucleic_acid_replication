@@ -1,20 +1,372 @@
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import seqfold
 import os
 from functions import *
 import time
 import sys
-from seqfold import dg, dg_cache, fold, Cache, Struct
+from seqfold import dg, dg_cache, fold, Cache, Struct, dot_bracket
+from collections import defaultdict
 
 
 
 
-strand = "AGUCAGUCAUGCGACUGACU"
 
-dg = seqfold.dg(strand)
-print(dg)
 
-###6/29/24 backup
+
+"""def process_cleaved_sequences_with_labels(file_path):
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+
+    sequence_fragments = {}
+    current_label = None
+    original_sequences = []
+
+    for line in lines:
+        line = line.strip()
+        if line.startswith("!!"):  # New sequence section
+            current_label = int(line[2:])  # Extract sequence number
+            sequence_fragments[current_label] = []  # Initialize the list for this sequence
+        elif line and not line.startswith("*"):  # Process valid sequence lines
+            sequence_fragments[current_label].append(line)
+
+    return sequence_fragments
+
+
+def count_cleavage_frequencies(sequence_fragments, original_sequences):
+    cleavage_frequencies = [0] * (len(original_sequences[0]) - 1)  # Create a list for positions
+    
+    # Track cleaved positions
+    for seq_label, fragments in sequence_fragments.items():
+        if seq_label <= len(original_sequences):  # Ensure seq_label is within bounds
+            original_seq = original_sequences[seq_label - 1]  # Get the corresponding original sequence
+            for fragment in fragments:
+                # Compare the original sequence with the fragment
+                for index in range(len(original_seq) - 1):  # Check each bond position
+                    if index < len(fragment) and original_seq[index] != fragment[index]:  # If there's a change, cleavage occurred
+                        cleavage_frequencies[index] += 1
+
+    return cleavage_frequencies
+
+
+# Example usage
+original_sequences = [
+    "AAAAAAGGGGGGUUUUCCCCCC",  # Original Sequence 1
+    "AAAAAAGGGGGGUUUUCCCCCC",  # Original Sequence 2
+    "AAAAAAGGGGGGUUUUCCCCCC",  # Original Sequence 3
+]
+
+# Path to your file containing the cleaved sequences
+file_path = "/Users/dduren3/Desktop/nucleic_acid_replication/output/2024-09-30 17:21/Error_Contingency_run_2024-09-30 17:21.txt"  # Update with your file path
+
+# Process sequences
+sequence_fragments = process_cleaved_sequences_with_labels(file_path)
+print("Processed Sequence Fragments:")
+for label, fragments in sequence_fragments.items():
+    print(f"Label {label}: {fragments}")
+
+# Count cleavage frequencies
+cleavage_frequencies = count_cleavage_frequencies(sequence_fragments, original_sequences)
+print("Cleavage Frequencies:")
+for position, count in enumerate(cleavage_frequencies):
+    print(f"Position {position}: Cleaved {count} times.")
+"""
+#10/16/24 update
+
+
+
+
+def calculate_cleavage_probabilities(file_path, original_sequence, num_of_orig_seq):
+    # Read the output file containing sequences after the operation
+    with open(file_path, 'r') as f:
+        processed_sequences = f.readlines()
+
+    processed_sequences = [
+        seq.strip() for seq in processed_sequences 
+        if seq.strip() and not seq.startswith('*') and not seq.startswith('!!')
+    ]
+
+    total_sequences = num_of_orig_seq 
+
+    seq_length = len(original_sequence)
+
+    # Initialize a list to track the number of times each bond was cleaved
+    cleavage_counts = [0] * (seq_length - 1)  
+
+
+
+
+
+    total_bonds_counted = [0] * (seq_length - 1)
+
+    # Process each sequence and analyze the cleavage points
+    i = 0
+    while i < len(processed_sequences):
+        fragments = []  # Reset the fragments for each new sequence group
+        if processed_sequences[i] == original_sequence:
+            # If the sequence is intact, count all bonds as unbroken
+            print(f"Found intact sequence: {processed_sequences[i]}")
+
+            for bond_index in range(seq_length - 1):
+                total_bonds_counted[bond_index] += 1
+            i += 1
+            continue
+
+        # Collect fragments until a new sequence group starts
+        while i < len(processed_sequences) and processed_sequences[i] != original_sequence:
+            fragments.append(processed_sequences[i])
+            i += 1
+
+        # If we have multiple fragments, analyze the cleavage point
+        if fragments:
+            print(f"Fragments found: {fragments}")
+            for frag in fragments:
+                frag = frag.strip()
+                frag_length = len(frag)
+
+                # Find the matching index in the original sequence starting from start_idx
+                for start in range(len(original_sequence) - len(frag) + 1):
+                    if original_sequence[start:start + len(frag)] == frag:
+                        match_index = start
+                        break
+
+                if match_index != -1:
+                    # Correct bond index where the fragment ends
+                    if match_index + frag_length < seq_length:
+                        bond_index = match_index + frag_length - 1
+                        cleavage_counts[bond_index] += 1
+
+                    # Increment total bonds counted for each bond in this fragment
+                    for bond_index in range(match_index, match_index + frag_length - 1):
+                        total_bonds_counted[bond_index] += 1
+
+                    # Update start_idx to be just past the current match
+                else:
+                    print(f"Fragment {frag} does NOT match original sequence!")
+
+
+
+    # Calculate cleavage probabilities for each bond
+    cleavage_probabilities = [
+        cleavage_counts[i] / total_sequences if total_bonds_counted[i] > 0 else 0.0
+        for i in range(seq_length - 1)
+    ]
+    
+    return cleavage_probabilities
+
+
+
+
+
+original_sequence = "AAAAAAGGGGGGUUUUCCCCCC"
+file_path = "/Users/dduren3/Desktop/nucleic_acid_replication/output/5000 1 it/FINAL_run_2024-11-07 14:41.txt"
+num_of_orig_seq = 5000 # this is how many of original_sequence were used in the original simulation
+cleavage_probabilities = calculate_cleavage_probabilities(file_path, original_sequence, num_of_orig_seq)
+print(cleavage_probabilities)
+
+
+
+
+def calculate_percentage_of_whole_seqs(file_path, original_sequence, num_of_orig_seq, num_struct, num_unstruct):
+
+
+    with open(file_path, 'r') as f:
+        processed_sequences = f.readlines()
+
+    star_lines = [seq.strip() for seq in processed_sequences if seq.startswith('*')]
+
+    processed_sequences = [
+        seq.strip() for seq in processed_sequences 
+        if seq.strip() and not seq.startswith('*') and not seq.startswith('!!')
+    ]
+
+    cleavage_props = {}
+    for line in star_lines:
+        if line.startswith('*cleav_prop') or line.startswith('*cleav_prop_struct'):
+            key, value = line.split('=')
+            cleavage_props[key.strip()] = float(value.strip())
+
+    cleav_prop = cleavage_props.get('*cleav_prop')
+    cleav_prop_struct = cleavage_props.get('*cleav_prop_struct')
+
+    theoretical_percentage_unbroken_seqs = round(((((1-cleav_prop)**num_unstruct) * ((1-cleav_prop_struct)**num_struct))) * 100, 2)
+
+
+
+
+    num_unbroken = 0
+    for seq in processed_sequences:
+        if len(seq) == len(original_sequence):
+            num_unbroken +=1
+
+    exp_percentage_unbroken_seqs = round((num_unbroken / num_of_orig_seq) * 100, 2)
+
+    return f"theoretical percentage unbroken: {theoretical_percentage_unbroken_seqs}, " \
+       f"experimental percentage unbroken: {exp_percentage_unbroken_seqs}"
+
+
+
+
+
+
+original_sequence = "AAAAAAGGGGGGUUUUCCCCCC"
+file_path = "/Users/dduren3/Desktop/nucleic_acid_replication/output/500 1 it/FINAL_run_2024-10-27 12:46.txt"
+num_of_orig_seq = 500 
+num_struct = 15
+num_unstruct = 6
+
+print(calculate_percentage_of_whole_seqs(file_path, original_sequence, num_of_orig_seq, num_struct, num_unstruct))
+
+
+
+
+
+
+#10/8/24 update:
+#below i think is working - gives color map of all indices - it just needs to be given a list 
+    #containing cleavage_probs, which is what above is trying to do
+
+def bond_cleavage_color_map(cleavage_probs):
+    colors = []
+    for prob in cleavage_probs:
+        # Scale cleavage probability to red-blue gradient
+        red_intensity = prob / 100
+        blue_intensity = 1 - red_intensity
+        colors.append((red_intensity, 0, blue_intensity))  
+    return colors
+
+# Test data
+sequence = "AAAAAAGGGGGGUUUUCCCCCC"  
+cleavage_probs = cleavage_probabilities
+
+
+colors = bond_cleavage_color_map(cleavage_probs)
+
+fig, ax = plt.subplots(figsize=(12, 3))
+# Create ticks only for the bonds (sequence length - 1)
+ax.set_xticks(np.arange(len(sequence) - 1) + 0.5)
+# Label each bond with the residues it connects and the cleavage percentage
+ax.set_xticklabels([f'{sequence[i]} - {sequence[i+1]} ({cleavage_probs[i]}%)' for i in range(len(sequence)-1)])
+ax.set_yticks([])  
+
+# Draw colored rectangles between each pair of residues
+for i in range(len(sequence) - 1):
+    rect = plt.Rectangle((i, 0), 1, 1, facecolor=colors[i])
+    ax.add_patch(rect)
+
+red_patch = mpatches.Patch(color='red', label='100% Cleavage')
+blue_patch = mpatches.Patch(color='blue', label='0% Cleavage')
+ax.legend(handles=[red_patch, blue_patch], loc='upper right')
+
+plt.xlim(0, len(sequence) - 1)
+plt.ylim(0, 1)
+plt.title('Bond Cleavage Probability Visualization with Percentages')
+plt.show()
+
+
+
+
+
+"""
+print(dg('AAAAAAGGGGGGUUUUCCCCCC'))
+
+strand = 'AAAAAAGGGGGGUUUUCCCCCC'
+
+fold = seqfold.fold(strand)
+
+
+struct_bonds = []
+for item in fold:
+    i, j = item.ij[0][0], item.ij[0][1]
+    print(item)
+    if "STACK" in item.desc:
+        
+        length = len(item.desc.split(":")[1].split("/")[0])
+        for bond in range(i, i+length-1):
+            struct_bonds.append(bond)
+        for bond in range(j-length+1, j):
+            print(j-length+1)
+            struct_bonds.append(bond) 
+        
+
+        struct_bonds.append(i)
+        struct_bonds.append(j)
+    if ("HAIRPIN" in item.desc):
+
+        for bond in range(i,j+1): #should this be j+1? or just j??
+            struct_bonds.append(bond)
+
+struct_bonds.sort()
+print(struct_bonds)
+
+"""
+
+
+
+sys.exit()
+
+
+print(len(str(124312431423213420)))
+
+init_seq_file = "TEST_HAIRPIN_FILE copy.txt"
+file_with_starting_seqs = open(init_seq_file, "r")
+list_of_starting_seqs = []
+for strand in file_with_starting_seqs:
+    list_of_starting_seqs.append(strand)
+
+feeding_in_knowns = True
+
+int_nt_list = [s.strip() for s in list_of_starting_seqs]
+
+int_nt_list = np.array(int_nt_list)
+
+mapping = {"1": "A", "2": "G", "3": "C", "4": "U"}
+
+
+#Need to convert int_nt_list back into list of ints for below operations
+
+reverse_mapping = {v: k for k, v in mapping.items()}
+
+def convert_strings_to_integers(string_nt_list):
+    converted_list = np.array([], dtype = np.float128) 
+
+    # Process each string in the input list
+    for string in string_nt_list:
+        # Convert each character in the string using the reverse mapping
+        integer_string = ''.join(reverse_mapping[char] for char in string)
+        integer_value = int(integer_string)
+        converted_list = np.append(converted_list, integer_value)
+    
+    return converted_list
+
+
+"""int_nt_list = np.array(convert_strings_to_integers(int_nt_list), dtype=np.float128)
+convert = np.vectorize(np.format_float_positional)
+
+print(np.format_float_positional(int_nt_list))"""
+
+int_nt_list = np.array(convert_strings_to_integers(int_nt_list), dtype=np.float128)
+
+formatted_list = np.vectorize(lambda x: np.format_float_positional(x, precision=0, trim='-'))(int_nt_list)
+
+print(formatted_list)
+    
+    
+
+
+### BELOW BEGINS NUCLEIC COMPUTATIONS
+
+
+
+
+
+
+
+
+
+
+##
+# #6/29/24 backup
 """    strands_in_decreasing_order = np.sort(nucleotide_list)[::-1]
     for strand in strands_in_decreasing_order:
         strand_length_tracking_list.append(len(str(strand)))
@@ -494,8 +846,8 @@ print("LINE 65 Running")
 
 #calculate the average length of the sequences returned by the main program
 #will also find the longest sequence generated throughout any iteration and return it 
-def average_sequence_length_and_longest_seq(filename):
-    opened = open(filename, "r")
+def average_sequence_length_and_longest_seq(file_path):
+    opened = open(file_path, "r")
     sequences = opened.read().splitlines()
     sets = []
     current_set = []
@@ -528,8 +880,8 @@ def average_sequence_length_and_longest_seq(filename):
 #print(average_sequence_length_and_longest_seq("test_file_1.txt"))
 
 #histogram attempt1
-def generate_sequence_length_histogram(filename):
-    opened = open(filename, "r")
+def generate_sequence_length_histogram(file_path):
+    opened = open(file_path, "r")
     sequences = opened.read().splitlines()
 
     sequence_lengths = []

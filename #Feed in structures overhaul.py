@@ -12,7 +12,8 @@ import time
 import sys
 
 
-#last update - 10/27/24
+#last update - 11/7/24
+
 #starting %nt involved in structured regions function
 
 current_time_struct = time.localtime()
@@ -252,14 +253,14 @@ def break_long(long, cleav_prop, cleav_prop_struct, mapping):
         #we want unstruc bonds to be cleaved w/ their own higher probability
         #then struct bonds to be cleaved - we want these processes to occur separately
 
-        cleave = np.zeros(num_bonds, dtype=bool)  # Initialize cleave array with all False
-        # Step 1: Cleave bonds in struct_bonds with their specific probability
+        cleave = np.zeros(num_bonds, dtype=bool)  # initialize cleave array with all False
+        #1: cleave bonds in struct_bonds with their specific probability
         cleave[struct_bonds] = np.random.random(struct_bonds.size) < cleav_prop_struct
-        # Step 2: Cleave only the bonds NOT in struct_bonds with the general probability
-        non_struct_bonds = np.ones(num_bonds, dtype=bool)  # Initialize mask to all True
-        non_struct_bonds[struct_bonds] = False  # Set struct_bonds to False (exclude them)
+        #2: cleave only the bonds NOT in struct_bonds with the unstruc probability
+        non_struct_bonds = np.ones(num_bonds, dtype=bool)  # initialize mask to all True
+        non_struct_bonds[struct_bonds] = False  # set struct_bonds to False (exclude them)
 
-        # Apply general cleavage probability to the non-structured bonds
+        # apply unstruc cleavage probability to the non-structured bonds
         cleave[non_struct_bonds] = np.random.random(np.sum(non_struct_bonds)) < cleav_prop
 
 
@@ -319,7 +320,8 @@ def break_long(long, cleav_prop, cleav_prop_struct, mapping):
             if (no == order-1):
                 new_long.append(part)
 
-            print(f"Index: {i}, Cleave status (i-1): {cleave[i-1]}, n_bond: {n_bond}, Part: {part}")
+            #Below is master print statement for cleave - "cleave status"
+            #print(f"Index: {i}, Cleave status (i-1): {cleave[i-1]}, n_bond: {n_bond}, Part: {part}")
 
         new_longs.extend(new_long)
 
@@ -457,6 +459,7 @@ def error_safeguard_system(file_being_written_to, it_num, list_of_sequences):
 
     except Exception as e:
         print(e)
+        print("error safeguard failing")
 
 
     
@@ -646,6 +649,7 @@ def percentage_nt_involved_in_structure(list_of_sequences_being_checked, mapping
     
         except Exception as e:
             print(e)
+            print("percent nt failing")
     return list_of_percentage_of_nt_in_structure
 
     
@@ -683,18 +687,18 @@ def percentage_nt_plot(list_of_percentage_nt_involved_in_structure,output_folder
 import numpy as np
 import time
 import seqfold
-seed_value = 1
+seed_value = 5
 np.random.seed(seed_value)
 
-#LAST UPDATE: 10/8/24 - 
+#LAST UPDATE: 11/07/24 - 
 
 #below are the variables we manipulate
 
 init_nuc_num = 10000    # number of each base (10k A, 10k U, etc) - IRRELEVANT for feed in structures
-cleav_prop = .01   # chance of unstruc regions breaking during given run                  
-cleav_prop_struct = 0.001   # chance of struc region breaking during given run
+cleav_prop = 1  # chance of unstruc regions breaking during given run                  
+cleav_prop_struct = 0.00  # chance of struc region breaking during given run
 length_threshold = 10   # we wont check if something less than this long has struc
-n_iterations = 1    # how many runs until completion
+n_iterations = 2    # how many runs until completion
 progress_report_freq  = 1   # how often code gives us a progress report / saves data to Error_Contingency file in case of error
 dG_critical_value = -10
 feed_in_known_structs = True
@@ -707,7 +711,7 @@ len4 = 10
 list_of_percentage_nt_involved_in_structure = [] #used via percentage_nt_involved_in_structure function
 
 ###NOVEL 6/27/24 feed in file
-init_seq_file = "22MER 5000 seq.txt"
+init_seq_file = "11 14 half hairpin output.txt"
 file_with_starting_seqs = open(init_seq_file, "r")
 list_of_starting_seqs = []
 for strand in file_with_starting_seqs:
@@ -831,8 +835,6 @@ for it in range(1, n_iterations + 1):
 
     np.random.shuffle(int_nt_list)
 
-    # Take the first half of the strands and calculate their lengths
-    size = int_nt_list.size
 
 
 #######@ BELOW IS UNDER REVIEW 8/1/24 - BELIEVED TO BE CAUSING ISSUES
@@ -891,7 +893,6 @@ for it in range(1, n_iterations + 1):
                 #OBSERVATION 7/2/24 - seqfold will say some sequences have -infinity dG
                 #These are sequences with NO FOLDING POSSIBLE
                 #they are to be added to short and removed from long
-                print(strand_str + " has dg of -inf")
                 count = np.sum(long == strand)
                 long = long[long != strand]
                 short = np.append(short, [strand] * count)
@@ -926,7 +927,6 @@ for it in range(1, n_iterations + 1):
         int_nt_list = np.concatenate((mono, short, long))
 
 
-    
     strands_in_decreasing_order = np.sort(int_nt_list)[::-1]
     for strand in strands_in_decreasing_order:
         strand_length_tracking_list.append(len(str(strand)))
@@ -946,7 +946,7 @@ for it in range(1, n_iterations + 1):
     #below is 3/19/24
     summary_for_percent_nt = np.sort(int_nt_list)[::-1][:10] #gives the 10 longest sequences
     
-    list_of_percentage_nt_involved_in_structure.append(percentage_nt_involved_in_structure(summary_for_percent_nt, mapping))
+    #list_of_percentage_nt_involved_in_structure.append(percentage_nt_involved_in_structure(summary_for_percent_nt, mapping))
 
     if it%n_iterations == 0: 
         #means code is done, generate final txt file with end results
@@ -994,6 +994,27 @@ for it in range(1, n_iterations + 1):
 
 
 
+    #@@@@@ NOVEL 11/7/2024
+    """TESTING: RECOMBINATION FUNCTION
+    THIS BELOW SHOULD SIMPLE PAIR UP EACH THING IN int_nt_list WITH 
+    SOMETHING ELSE AFTER EACH ITERATION
+    SIMILAR TO HOW ORIGINAL FUNCTION WORKED"""
+
+    np.random.shuffle(int_nt_list)
+    paired_ints = [
+        int_nt_list[i] * 10**len(str(int_nt_list[i + 1])) + int_nt_list[i + 1]
+        for i in range(0, len(int_nt_list) - 1, 2)
+        ]
+
+    if len(int_nt_list) % 2 != 0:
+        paired_ints.append(int_nt_list[-1])
+
+    paired_ints = np.array(paired_ints, dtype=object)
+
+    print("Paired integer strands:", paired_ints)
+    int_nt_list = paired_ints
+                
+    
 
 
 #generate_sequence_length_histogram(final_file_path, folder_name, n_iterations)

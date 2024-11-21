@@ -7,9 +7,86 @@ import time
 import sys
 from seqfold import dg, dg_cache, fold, Cache, Struct, dot_bracket
 from collections import defaultdict
+from collections import Counter
 
 
+sequences = """
+GGGGGGGGGGGGGGGGGGGG
+GGGGGGGGGGGGGGGGGGGG
+GGGGGGGGGGGGGGGGGGGG
+GGGGGGGGGGGGGGGGGGGG
+GGGGGGGGGGGGGGGGGGGG
+GGGGGGGGGGGGGGGGGGGG
+GGGGGGGGGGGGGGGGGGGG
+GGGGGGGGGGGGGGGGGGGG
+GGGGGGGGGGGGGGGGGGGG
+GGGGGGGGGGGGGGGGGGGG
+GGGGGGGGGGGGGGGGGGGG
+GGGGGGGGGGGGGGGGGGGG
+GGGGGGGGGGGGGGGGGGGG
+GGGGGGGGGGGGGGGGGGGG
+GGGGGGGGGGGGGGGGGGGG
+GGGGGGGGGGGGGGGGGGGG
+GGGGGGGGGGAAAAAAAAAA
+GGGGGGGGGGAAAAAAAAAA
+GGGGGGGGGGAAAAAAAAAA
+GGGGGGGGGGAAAAAAAAAA
+GGGGGGGGGGAAAAAAAAAA
+GGGGGGGGGGAAAAAAAAAA
+GGGGGGGGGGAAAAAAAAAA
+GGGGGGGGGGAAAAAAAAAA
+GGGGGGGGGGAAAAAAAAAA
+GGGGGGGGGGAAAAAAAAAA
+GGGGGGGGGGAAAAAAAAAA
+GGGGGGGGGGAAAAAAAAAA
+GGGGGGGGGGAAAAAAAAAA
+GGGGGGGGGGAAAAAAAAAA
+GGGGGGGGGGAAAAAAAAAA
+AAAAAAAAAAGGGGGGGGGG
+AAAAAAAAAAGGGGGGGGGG
+AAAAAAAAAAGGGGGGGGGG
+AAAAAAAAAAGGGGGGGGGG
+AAAAAAAAAAGGGGGGGGGG
+AAAAAAAAAAGGGGGGGGGG
+AAAAAAAAAAGGGGGGGGGG
+AAAAAAAAAAGGGGGGGGGG
+AAAAAAAAAAGGGGGGGGGG
+AAAAAAAAAAGGGGGGGGGG
+AAAAAAAAAAGGGGGGGGGG
+AAAAAAAAAAGGGGGGGGGG
+AAAAAAAAAAGGGGGGGGGG
+AAAAAAAAAAGGGGGGGGGG
+AAAAAAAAAAGGGGGGGGGG
+AAAAAAAAAAGGGGGGGGGG
+AAAAAAAAAAGGGGGGGGGG
+AAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAA"""
 
+#####Counter function
+sequences_list = sequences.strip().splitlines()
+sequence_counts = Counter(sequences_list)
+
+# Output the counts for each unique sequence
+for seq, count in sequence_counts.items():
+    print(f"Sequence: {seq}, Count: {count}")
+
+# Print total number of sequences
+print(f"Total number of sequences: {sum(sequence_counts.values())}")
+###end Counter function
 
 
 
@@ -73,11 +150,10 @@ for position, count in enumerate(cleavage_frequencies):
 """
 #10/16/24 update
 
-
+sys.exit()
 
 
 def calculate_cleavage_probabilities(file_path, original_sequence, num_of_orig_seq):
-    # Read the output file containing sequences after the operation
     with open(file_path, 'r') as f:
         processed_sequences = f.readlines()
 
@@ -99,32 +175,28 @@ def calculate_cleavage_probabilities(file_path, original_sequence, num_of_orig_s
 
     total_bonds_counted = [0] * (seq_length - 1)
 
-    # Process each sequence and analyze the cleavage points
+
     i = 0
     while i < len(processed_sequences):
-        fragments = []  # Reset the fragments for each new sequence group
+        fragments = []  
         if processed_sequences[i] == original_sequence:
-            # If the sequence is intact, count all bonds as unbroken
-            print(f"Found intact sequence: {processed_sequences[i]}")
-
+            #print(f"Found intact sequence: {processed_sequences[i]}")
             for bond_index in range(seq_length - 1):
                 total_bonds_counted[bond_index] += 1
             i += 1
             continue
 
-        # Collect fragments until a new sequence group starts
         while i < len(processed_sequences) and processed_sequences[i] != original_sequence:
             fragments.append(processed_sequences[i])
             i += 1
 
         # If we have multiple fragments, analyze the cleavage point
         if fragments:
-            print(f"Fragments found: {fragments}")
+            #print(f"Fragments found: {fragments}")
             for frag in fragments:
                 frag = frag.strip()
                 frag_length = len(frag)
 
-                # Find the matching index in the original sequence starting from start_idx
                 for start in range(len(original_sequence) - len(frag) + 1):
                     if original_sequence[start:start + len(frag)] == frag:
                         match_index = start
@@ -146,7 +218,6 @@ def calculate_cleavage_probabilities(file_path, original_sequence, num_of_orig_s
 
 
 
-    # Calculate cleavage probabilities for each bond
     cleavage_probabilities = [
         cleavage_counts[i] / total_sequences if total_bonds_counted[i] > 0 else 0.0
         for i in range(seq_length - 1)
@@ -263,6 +334,8 @@ plt.ylim(0, 1)
 plt.title('Bond Cleavage Probability Visualization with Percentages')
 plt.show()
 
+
+sys.exit()
 
 
 

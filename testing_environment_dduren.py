@@ -9,6 +9,9 @@ from seqfold import dg, dg_cache, fold, Cache, Struct, dot_bracket
 from collections import defaultdict
 from collections import Counter
 
+sus_sequence = "AAGAAAAAGUAGAGGAAUCGAAACAAACUGCUUAUGCCCCGCGGGGUUCUUCGUAGGAGGUCU"
+print(seqfold.dg(sus_sequence))
+
 
 sequences = """
 GGGGGGGGGGGGGGGGGGGG
@@ -150,7 +153,6 @@ for position, count in enumerate(cleavage_frequencies):
 """
 #10/16/24 update
 
-sys.exit()
 
 
 def calculate_cleavage_probabilities(file_path, original_sequence, num_of_orig_seq):

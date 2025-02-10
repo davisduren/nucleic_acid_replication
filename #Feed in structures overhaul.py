@@ -4,7 +4,6 @@
 ###COPY over functions.py
 
 import numpy as np
-np.random.seed(0)
 import seqfold
 import matplotlib.pyplot as plt
 import os
@@ -89,6 +88,7 @@ def break_short(short, cleav_prop):
     # Generate an array of random numbers between 0 and 1 (length: #bonds)
     # and check whether each element is lower than a given threshold.
     # If it is lower, then we will break the bond
+
     cleave = np.random.random(num_bonds) < cleav_prop
     new_short = []
     i = 0 
@@ -115,9 +115,18 @@ def break_short(short, cleav_prop):
             # Break bond. We represent breaking bonds by integer division
             # and modulus operation. This will separate an integer number
             # to two parts.
+
+            """OLD ASEM CODE - Errant method of dividing values
+            11/27/24 - also seemed to be causing scientific notation error 
+            as the division was causing floating point values to be generated
             part0 = part%10**n_bond
             part = part//10**n_bond
-            n_bond = 1 
+            n_bond = 1
+               """
+            divisor = 10**(len(str(part)) - n_bond)  
+            part0 = part // divisor  # part0 of the strand before the cleaved bond
+            part = part % divisor #part is part of strand after cleaved bond
+            n_bond = 1             
 
             # Append one part of the strand, and keep the other part
             # whose remaining bonds may be broken
@@ -126,11 +135,9 @@ def break_short(short, cleav_prop):
             # Check if the remaining part has no remaining bond, then append
             if no == order[ns]-1:
                 new_short.append(part)
+    #print(new_short)
     
     return new_short
-
-
-
 
 
 
@@ -180,7 +187,7 @@ def structured_regions(structs):
                 struct_bonds.append(bond)
 
             
-    struct_bonds = np.array(sorted(struct_bonds), dtype=np.int64)
+    struct_bonds = np.array(sorted(struct_bonds), dtype=np.uint64)
     return struct_bonds
 
 
@@ -226,37 +233,28 @@ def break_long(long, cleav_prop, cleav_prop_struct, mapping):
         # Identify structured regions
         structs = seqfold.fold(seq)
         struct_bonds  = structured_regions(structs)
-        struct_bonds = np.unique(struct_bonds) #TEST 9/17/24 - eliminates duplicate indices
-        
+        struct_bonds = np.unique(struct_bonds) #eliminates duplicate indices
+
+ 
    # Calculate the length  of the strand and the number of bonds
         order = len(seq)
         num_bonds = order - 1
 
 
-        """
-        # Determine broken bonds for structured and unstructured regions
- 
-        cleave[struct_bonds] = np.random.random(struct_bonds.size) < cleav_prop_struct
-        cleave = np.random.random(num_bonds) < cleav_prop
-        print(cleave[struct_bonds])
+        random_values = np.random.random(struct_bonds.size)
 
-        #my understanding:
-        #we break the struct_bonds with probability given by cleave_prop_struct.
-        #then the next line takes ALL bonds and hits each with the unstruc cleave_prop,
-        #NOT excluding the struct_bonds! This overwrites the struct_bonds,
-        and gives struct bonds a possibility of cleaving with unstructured bond cleavage probability
+      
 
-
-        """
-
-        #^^^ 9/8/24 - Attempting fix via GPT suggestion 
+        #^^^ 9/8/24 - Attempting fix  
         #we want unstruc bonds to be cleaved w/ their own higher probability
         #then struct bonds to be cleaved - we want these processes to occur separately
 
         cleave = np.zeros(num_bonds, dtype=bool)  # initialize cleave array with all False
-        #1: cleave bonds in struct_bonds with their specific probability
-        cleave[struct_bonds] = np.random.random(struct_bonds.size) < cleav_prop_struct
-        #2: cleave only the bonds NOT in struct_bonds with the unstruc probability
+        #1: cleave bonds in struct_bonds with their specific probability (below)
+
+        cleave[struct_bonds] = np.random.random(struct_bonds.size) < (cleav_prop_struct)
+
+        #2: cleave only the bonds NOT in struct_bonds with the unstruc probability 
         non_struct_bonds = np.ones(num_bonds, dtype=bool)  # initialize mask to all True
         non_struct_bonds[struct_bonds] = False  # set struct_bonds to False (exclude them)
 
@@ -288,14 +286,8 @@ def break_long(long, cleav_prop, cleav_prop_struct, mapping):
             # and modulus operation. This will separate an integer number
             # to two parts.
 
-
-            #9/19/24 - all of below is now called into question
-
-            #the code below reads the sequence right to left (?) - this does not match with how
-            #struct_bonds returns the indices of structured regions
-            
              
-            """THIS IS ASEM'S ORIGINAL CODE
+            """9/19/24 - THIS IS ASEM'S ORIGINAL CODE
             I DO NOT THINK IT WORKS CORRECTLY - IT CHOPS OFF FROM THE END OF THE SEQ
             REGARDLESS OF WHERE THE STRUCT_BONDS ARE 
             IF THE LAST BONDS ARE STRUCT and have 0% chance of cleavage,
@@ -303,14 +295,23 @@ def break_long(long, cleav_prop, cleav_prop_struct, mapping):
             THE LAST NUMBER 
             #part0 = part%10**n_bond
             #part = part//10**n_bond
+
+            ex. with seq 1111*112222224444333333 and n_bond = 4, shown by * <--
+            the code does part0 = 1111112222224444333333 % 10**4
+            so part0 = 3333 when we want seq to be split to 1111 and 112222224444333333
+                i.e code splits at wrong bond index location
+
             """
 
             #9/20/24 - Below is my attempt to fix this issue
+            #n_bond is the bond index at which cleave dictionary has a "True" value
+                # ^ i.e cleave has computed that the sequence needs to be split at this index
+                #(n_bond does not use 0 based indexing - first bond in sequence is n_bond = 1)
+            
             divisor = 10**(len(str(part)) - n_bond)  
-            part0 = part // divisor  # First part of the strand (chopping from the start)
-            part = part % divisor
-            n_bond = 1
-
+            part0 = part // divisor  # part0 of the strand before the cleaved bond
+            part = part % divisor #part is part of strand after cleaved bond
+            n_bond = 1 
 
             # Append one part of the strand, and keep the other part
             # whose remaining bonds may be broken
@@ -348,43 +349,47 @@ def convert_int_to_str_seq(seq_array, mapping):
     return seq_array_s
 
 
-#calculate the average length of the sequences returned by the main program
-#will also find the longest sequence generated throughout any iteration and return it 
-def average_sequence_length_and_longest_seq(filename):
-    opened = open(filename, "r")
-    sequences = opened.read().splitlines()
-    sets = []
-    current_set = []
-    for seq in sequences:
-        if seq.startswith("*"): #ignore our notes written to the output file
-            continue
-        if seq:
-            current_set.append(seq)
-        else:
-            if current_set:
-                sets.append(current_set)
-                current_set = []
-    if current_set:
-        sets.append(current_set)
 
-    avg_lengths = []
-    longest_sequence = ""
-    for s in sets:
-        total_length = 0
-        for seq in s:
-            total_length += len(seq)
-            if len(seq) > len(longest_sequence):
-                longest_sequence = seq
-        avg_length = total_length / len(s)
-        avg_lengths.append(avg_length)
+def compute_mean_length(strand_length_tracking_list):
+    return round(sum(strand_length_tracking_list) / len(strand_length_tracking_list), 2)
 
-    return avg_lengths, "LONGEST SEQUENCE FOUND: " + longest_sequence
+
+
+
+
+def plot_avg_length(mean_length_list, output_folder_name, formatted_time):
+    """
+    Plots the given list of float values.
+    X-axis represents iterations (starting from 1).
+    Y-axis represents mean_length values.
+    """
+    iterations = list(range(1, len(mean_length_list) + 1))  # Iteration numbers
+    
+    plt.figure(figsize=(8, 5))  # Set figure size
+    plt.plot(iterations, mean_length_list, marker='o', linestyle='-', color='b', label='Mean Length')  
+    
+    plt.xlabel("Iteration")
+    plt.ylabel("Mean Length")
+    plt.title("Mean Seq Length Throughout Simulation " +str(formatted_time))
+    plt.grid(True, linestyle='--', alpha=0.6)  # Add grid for better readability
+    plt.legend()
+    
+    try:
+        output_folder = "./feed in strucs overhaul output/" + str(output_folder_name)
+        output_file_path = os.path.join(output_folder, f"Mean_Strand_Length_{formatted_time}.jpg")
+        plt.savefig(output_file_path, dpi=300)
+        output_file_path_svg = os.path.join(output_folder, f"Mean_Strand_Length_{formatted_time}.svg")
+        plt.savefig(output_file_path_svg, format="svg")
+
+
+    except Exception as e:
+        print(e)
+    
+    
 
 
 
 def generate_sequence_length_histogram(file_path, folder_name, progress_report_num):
-
-
 
     opened = open(file_path, "r") # needs to be error contingency file
     sequences = opened.read().splitlines()
@@ -398,15 +403,18 @@ def generate_sequence_length_histogram(file_path, folder_name, progress_report_n
             
     plt.clf() # clears any data that may still be cached
     plt.hist(sequence_lengths, bins=100)
-    plt.yscale("log")
+    plt.yscale("linear")
     plt.xlabel('Sequence Length (nt)')
     plt.ylabel('Frequency')
     plt.title('Sequence Length Histogram' + str(formatted_time) + "___run_" + str(progress_report_num))
 
     try:
-        output_folder = "./output/" + str(folder_name)
+        output_folder = "./feed in strucs overhaul output/" + str(folder_name)
         output_file_path = os.path.join(output_folder, f"{progress_report_num}_sequence_length_histogram_{formatted_time}.jpg")
-        plt.savefig(output_file_path)
+        plt.savefig(output_file_path, dpi = 300)
+        output_file_path_svg = os.path.join(output_folder, f"{progress_report_num}_sequence_length_histogram_{formatted_time}.svg")
+        plt.savefig(output_file_path_svg, format="svg")
+
 
     except Exception as e:
         return e
@@ -461,28 +469,6 @@ def error_safeguard_system(file_being_written_to, it_num, list_of_sequences):
         print(e)
         print("error safeguard failing")
 
-
-    
-    """
-    try:
-        if not file_being_written_to.closed:
-            print('line')
-
-            file_being_written_to.write("!!" + str(it_num) + "\n")
-            for seq in list_of_sequences:
-                file_being_written_to.write(seq + "\n")
-        else:
-            opened = open(file_being_written_to, "a")
-            opened.write("!!" + str(it_num) + "\n")
-            for seq in list_of_sequences:
-                opened.write(seq + "\n")
-
-        file_being_written_to.close() #LAST UPDATE 7/12/24
-                                        #BREAKS HISTOGRAM FUNCTION BC FILE IS NOW CLOSED
-
-    except Exception as E:
-        print(E)
-        print("error safeguard sys is erroring")"""
 
 
 
@@ -554,8 +540,8 @@ def percent_over_certain_length(list_of_lengths, len1, len2, len3, len4):
 
     for strand in list_of_lengths:
         number_of_unique_strands +=1
-        if strand >=len4:
-            num_len_4 +=1
+        if strand >=len4: #if >=longest length (len4), only append it to num_len_4
+            num_len_4 +=1 #else if it shorter than len4, see if its over len3
         elif strand >=len3:
             num_len_3 +=1
         elif strand >=len2:
@@ -587,7 +573,7 @@ def percentage_plot(list_of_percentages, output_folder_name, formatted_time, len
     #formatted time = the output directory (since the name of output directory is 
     #simply the formatted time variable from main file)
 
-    x = range(len(list_of_percentages))  # x axis will be number of iterations completed
+    x = range(1, len(list_of_percentages)+1)  # x axis will be number of iterations completed
     y_values = [[] for _ in range(len(list_of_percentages[0]))]  # makes empty lists for each y-value
     
     # Extract y-values from the sublists - each sublist is the list of percentages from any given iteration
@@ -606,9 +592,11 @@ def percentage_plot(list_of_percentages, output_folder_name, formatted_time, len
     plt.legend(['>=' + str(len1), '>=' + str(len2), '>=' + str(len3), '>=' + str(len4)])  # Set labels for the legend
 
     try:
-        output_folder = "./output/" + str(output_folder_name)
+        output_folder = "./feed in strucs overhaul output/" + str(output_folder_name)
         output_file_path = os.path.join(output_folder, f"Percentage_strands_over_lengthX_{formatted_time}.jpg")
-        plt.savefig(output_file_path, dpi=200)
+        plt.savefig(output_file_path, dpi=300)
+        output_file_path_svg = os.path.join(output_folder, f"Percentage_stands_over_lengthX_{formatted_time}.svg")
+        plt.savefig(output_file_path_svg, format="svg")
 
 
     except Exception as e:
@@ -690,34 +678,38 @@ import seqfold
 seed_value = 5
 np.random.seed(seed_value)
 
-#LAST UPDATE: 11/07/24 - 
+#LAST UPDATE: 2/7/25 - 
 
 #below are the variables we manipulate
 
-init_nuc_num = 10000    # number of each base (10k A, 10k U, etc) - IRRELEVANT for feed in structures
-cleav_prop = 1  # chance of unstruc regions breaking during given run                  
-cleav_prop_struct = 0.00  # chance of struc region breaking during given run
-length_threshold = 10   # we wont check if something less than this long has struc
-n_iterations = 2    # how many runs until completion
-progress_report_freq  = 1   # how often code gives us a progress report / saves data to Error_Contingency file in case of error
-dG_critical_value = -10
-feed_in_known_structs = True
-
-len1 = 4
-len2 = 6    # these are the lengths we are using in the percent_over_certain_length functions
-len3 = 8    #  see that function for more info
-len4 = 10
-
-list_of_percentage_nt_involved_in_structure = [] #used via percentage_nt_involved_in_structure function
-
 ###NOVEL 6/27/24 feed in file
-init_seq_file = "11 14 half hairpin output.txt"
+init_seq_file = "1k each monomer input.txt"
 file_with_starting_seqs = open(init_seq_file, "r")
 list_of_starting_seqs = []
 for strand in file_with_starting_seqs:
     list_of_starting_seqs.append(strand)
 
 feeding_in_knowns = True
+
+
+
+init_nuc_num =10000    # number of each base (10k A, 10k U, etc) - IRRELEVANT for feed in structures
+cleav_prop = 0.08  # chance of unstruc regions breaking during given run                  
+cleav_prop_struct = 0.0008 # chance of struc region breaking during given run
+length_threshold = 10   # we wont check if something less than this long has struc
+n_iterations = 50    # how many runs until completion
+progress_report_freq  = 10  # how often code gives us a progress report / saves data to Error_Contingency file in case of error
+dG_critical_value = -10     # if a sequence is structured &longer than length_threshold, but it does   
+                            #not have a ∆G ≤ this value, count it as unstructured
+
+len1 = 3
+len2 = 10    # these are the lengths we are using in the percent_over_certain_length functions
+len3 = 15    #  see that function for more info
+len4 = 21
+
+list_of_percentage_nt_involved_in_structure = [] #used via percentage_nt_involved_in_structure function
+
+
 
 #below are string versions of the variables used - this is written to our output file to help us track what settings produced the sequences
 init_nuc_num_str = "*init_nuc_num = " + str(init_nuc_num) + "\n"
@@ -728,16 +720,16 @@ n_iterations_str = "*n_iterations = " + str(n_iterations) + "\n"
 progress_report_freq_str = "*progress_report_freq = " + str(progress_report_freq) + "\n"
 seed_value_str = "*numpy random seed value = " + str(seed_value) + "\n"
 dg_crit_value_str = "*dG_critical_value = " + str(dG_critical_value) + "\n"
-feed_in_known_structs_str = "*feeding_in_known_structs = " + str(feed_in_known_structs) + "\n"
+feed_in_known_structs_str = "*feeding_in_known_structs = " + str(feeding_in_knowns) + "\n"
 settings_used = init_nuc_num_str + cleav_prop_str + cleav_prop_struct_str +  \
     length_threshold_str +  n_iterations_str + progress_report_freq_str + seed_value_str + \
-    dg_crit_value_str + feed_in_known_structs_str + "\n"
+    dg_crit_value_str + ("*input_file = " +init_seq_file  + "\n" if feeding_in_knowns else "") + feed_in_known_structs_str + "\n"
 
 
 #the below are used to create the file names
 current_time_struct = time.localtime()
 formatted_time = str(time.strftime("%Y-%m-%d %H:%M", current_time_struct))
-base_directory = "./output/"
+base_directory = "./feed in strucs overhaul output/"
 folder_name = formatted_time
 blank_txt_file_paramater = "Error_Contingency" # see create_blank_text_file for description
 
@@ -781,17 +773,6 @@ mapping = {"1": "A", "2": "G", "3": "C", "4": "U"}
 
 reverse_mapping = {v: k for k, v in mapping.items()}
 
-"""def convert_strings_to_integers(string_nt_list):
-    converted_list = []
-
-    # Process each string in the input list
-    for string in string_nt_list:
-        # Convert each character in the string using the reverse mapping
-        integer_string = ''.join(reverse_mapping[char] for char in string)
-        integer_value = int(integer_string)
-        converted_list.append(integer_value)
-    
-    return converted_list"""
 
 
 def convert_strings_to_integers(string_nt_list):
@@ -808,50 +789,41 @@ def convert_strings_to_integers(string_nt_list):
     return converted_list
 
 
-""" 7/23/24
-int_nt_list = np.array(convert_strings_to_integers(int_nt_list), dtype=np.float128)
-convert = np.vectorize(np.format_float_positional)
-
-print(np.format_float_positional(int_nt_list))"""
-
 int_nt_list = np.array(convert_strings_to_integers(str_nt_list), dtype=object)
 
-
 #int_nt_list = np.vectorize(lambda x: np.format_float_positional(x, precision=0, trim='-'))(int_nt_list)
-
-
 
 ### BELOW BEGINS NUCLEIC COMPUTATIONS
 
 
-
 longest_strand_length_list = []
 list_of_seqs_over_length_threshold = []
+mean_lengths = []
 
 for it in range(1, n_iterations + 1):
 
     print(str(it) + " -- current it num")
     strand_length_tracking_list = []
 
-    np.random.shuffle(int_nt_list)
 
+    ###BEGIN RECOMBINATION FUNCTIONALITY    
+    np.random.shuffle(int_nt_list) #shuffles every item in int_nt_list
+    paired_ints = [
+        int_nt_list[i] * 10**len(str(int_nt_list[i + 1])) + int_nt_list[i + 1]
+        for i in range(0, len(int_nt_list) - 1, 2)
+        ]
+    # iterates over indices in steps of 2
+    # multiplies the first element by (10 raised to the number of digits in the second)
+    # then adds the second element to the end of the first to form a combined "paired" integer
+    if len(int_nt_list) % 2 != 0:
+        paired_ints.append(int_nt_list[-1])
 
+    paired_ints = np.array(paired_ints, dtype=object)
 
-#######@ BELOW IS UNDER REVIEW 8/1/24 - BELIEVED TO BE CAUSING ISSUES
-    # If we have an even number, pair all of them
-    """if it ==1:
-        pass 
+    #print("Paired integer strands:", paired_ints)
+    int_nt_list = paired_ints
+    ###END RECOMBINATION FUNCTIONALITY
 
-    else:
-        if size%2 == 0:
-            int_nt_list = int_nt_list[:size//2] + 10**order * int_nt_list[size//2:]
-        # If we have an odd number, do not pair last strand
-        else:
-            int_nt_list_temp = int_nt_list[:size//2] + 10**order * int_nt_list[size//2:-1]
-            int_nt_list = np.hstack((int_nt_list_temp, int_nt_list[-1]))
-        """
-
-#######@
 
 
 
@@ -862,6 +834,8 @@ for it in range(1, n_iterations + 1):
     long = int_nt_list[order >= length_threshold]
 
     for strand in long:
+        #print(f"Iteration {it}: strand = {strand}, type = {type(strand)}")
+
         #7/22/2024 current M.O is to just remove the ones from long that fail the test
         #and paste them into short
 
@@ -881,12 +855,14 @@ for it in range(1, n_iterations + 1):
                     print(total_nt) # without any deletions, should be 4* whatever init_nuc_num is. If not, means this code is working
 
 
-        strand_numpyarray = np.array(strand)
+        strand_numpyarray = np.array(strand, dtype = object)
         strand_str = str(convert_int_to_str_seq(strand_numpyarray, mapping))
         try:
             dg_value = seqfold.dg(strand_str)
         except:
-            print(strand)
+            print("dg is erroring")
+            print(strand_str)
+            sys.exit()
 
         if dg_value <= dG_critical_value: #means its stable & it stays in long
             if str(dg_value) == "-inf": 
@@ -897,7 +873,7 @@ for it in range(1, n_iterations + 1):
                 long = long[long != strand]
                 short = np.append(short, [strand] * count)
             elif str(dg_value) != "-inf":
-                pass
+                print(str(dg_value) + "   " +  str(strand))
             
             
         else: # remove these from long & reassign these strands to short for purposes of breaking
@@ -909,11 +885,8 @@ for it in range(1, n_iterations + 1):
 
 
     if feeding_in_knowns == True: 
-        """this means short may be empty - apparently fixed 9/8/24
-        we will be feeding in strands that are structured and are longer than
-        the length_threshold (which is usually 10)
-        """
-
+        """this means short may be empty """
+                #NOTE 2/7/25 i dont thinl the above if statement is needed
             # Phase 3: Randomly break bonds in short strands
         try:
             long = break_long(long, cleav_prop, cleav_prop_struct, mapping)
@@ -921,16 +894,19 @@ for it in range(1, n_iterations + 1):
         except Exception as E: #vectorize failing if short has size of 0
             print(E)
             print('clevaage has failed in Phase 3')
-                  
-               
+        
 
         int_nt_list = np.concatenate((mono, short, long))
 
 
     strands_in_decreasing_order = np.sort(int_nt_list)[::-1]
+
+
     for strand in strands_in_decreasing_order:
         strand_length_tracking_list.append(len(str(strand)))
 
+    mean_len_this_it = compute_mean_length(strand_length_tracking_list)
+    mean_lengths.append(mean_len_this_it)
 
     #this stuff below makes a list of the percentages over certain lengths 
     #it appends the list of numbers (which are percentages) to another list, list_of_percent_lens
@@ -946,7 +922,8 @@ for it in range(1, n_iterations + 1):
     #below is 3/19/24
     summary_for_percent_nt = np.sort(int_nt_list)[::-1][:10] #gives the 10 longest sequences
     
-    #list_of_percentage_nt_involved_in_structure.append(percentage_nt_involved_in_structure(summary_for_percent_nt, mapping))
+
+
 
     if it%n_iterations == 0: 
         #means code is done, generate final txt file with end results
@@ -994,32 +971,10 @@ for it in range(1, n_iterations + 1):
 
 
 
-    #@@@@@ NOVEL 11/7/2024
-    """TESTING: RECOMBINATION FUNCTION
-    THIS BELOW SHOULD SIMPLE PAIR UP EACH THING IN int_nt_list WITH 
-    SOMETHING ELSE AFTER EACH ITERATION
-    SIMILAR TO HOW ORIGINAL FUNCTION WORKED"""
-
-    np.random.shuffle(int_nt_list)
-    paired_ints = [
-        int_nt_list[i] * 10**len(str(int_nt_list[i + 1])) + int_nt_list[i + 1]
-        for i in range(0, len(int_nt_list) - 1, 2)
-        ]
-
-    if len(int_nt_list) % 2 != 0:
-        paired_ints.append(int_nt_list[-1])
-
-    paired_ints = np.array(paired_ints, dtype=object)
-
-    print("Paired integer strands:", paired_ints)
-    int_nt_list = paired_ints
-                
-    
-
 
 #generate_sequence_length_histogram(final_file_path, folder_name, n_iterations)
 #generate_line_plot_of_longest_strand(longest_strand_length_list, folder_name, formatted_time, n_iterations)
 #print(list_of_percent_lens)
 percentage_plot(list_of_percent_lens, folder_name, formatted_time, len1, len2, len3, len4)
 #percentage_nt_plot(list_of_percentage_nt_involved_in_structure, folder_name, formatted_time)
-
+plot_avg_length(mean_lengths, folder_name, formatted_time)

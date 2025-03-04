@@ -688,8 +688,8 @@ feeding_in_knowns = True
 
 #PEDIT
 init_nuc_num =10000    # number of each base (10k A, 10k U, etc) - IRRELEVANT for feed in structures
-cleav_prop = 0.01
-cleav_prop_struct = 0.008
+cleav_prop = 0.2  # chance of unstruc regions breaking during given run                  
+cleav_prop_struct = 0.12 # chance of struc region breaking during given run
 length_threshold = 10   # we wont check if something less than this long has struc
 n_iterations = 60    # how many runs until completion
 progress_report_freq  = 10  # how often code gives us a progress report / saves data to Error_Contingency file in case of error
@@ -947,6 +947,7 @@ for it in range(1, n_iterations + 1):
         important_data_file_path_open = open(important_data_file_path, "a")
         important_data_file_path_open.write(settings_used)
         important_data_file_path_open.write(f"Median length at iteration {n_iterations}: {median_lengths[-1]} \n")
+        important_data_file_path_open.write(f"median lengths at all iterations :  {median_lengths} \n")
 
          #throwing_out_long_seqs:
             
